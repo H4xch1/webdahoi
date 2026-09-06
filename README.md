@@ -1,7 +1,8 @@
-## webdahoi
+### webdahoi
 ketika dunia adalah menjadi benar adanya maka adalah ketika mengapa adalah apabila berujibajeo
 
 # structures
+```
 D:\webdahoi
 ├── package.json ⬜ workspace root
 ├── README.md ⬜
@@ -97,3 +98,4 @@ D:\webdahoi
 ├── kepsek\page.tsx ⬜
 ├── kurikulum\page.tsx ⬜
 └── register\page.tsx ⬜
+```
