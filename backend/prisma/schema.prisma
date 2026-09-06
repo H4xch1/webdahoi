@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MURID
+  GURU
+  KEPSEK
+  KURIKULUM
+  ADMIN_UTAMA
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  kelasId String?
+  kelas   Kelas?  @relation(fields: [kelasId], references: [id])
+
+  guruMapel GuruMapel[]
+  tugas     Tugas[]      @relation("TugasCreatedBy")
+  ujian     Ujian[]      @relation("UjianCreatedBy")
+  materi    Materi[]     @relation("MateriCreatedBy")
+  nilai     Nilai[]
+}
+
+model Jurusan {
+  id    String  @id @default(uuid())
+  nama  String  @unique
+  kelas Kelas[]
+}
+
+model Kelas {
+  id        String   @id @default(uuid())
+  nama      String
+  jurusanId String
+  jurusan   Jurusan  @relation(fields: [jurusanId], references: [id])
+  siswa     User[]
+  mapel     Mapel[]
+  tugas     Tugas[]
+  ujian     Ujian[]
+  materi    Materi[]
+}
+
+model Mapel {
+  id        String      @id @default(uuid())
+  nama      String
+  kelas     Kelas[]
+  guruMapel GuruMapel[]
+  tugas     Tugas[]
+  ujian     Ujian[]
+  materi    Materi[]
+}
+
+model GuruMapel {
+  id      String @id @default(uuid())
+  guruId  String
+  guru    User   @relation(fields: [guruId], references: [id])
+  mapelId String
+  mapel   Mapel  @relation(fields: [mapelId], references: [id])
+}
+
+model Materi {
+  id          String   @id @default(uuid())
+  judul       String
+  deskripsi   String?
+  fileUrl     String?
+  mapelId     String
+  mapel       Mapel    @relation(fields: [mapelId], references: [id])
+  kelasId     String
+  kelas       Kelas    @relation(fields: [kelasId], references: [id])
+  createdById String
+  createdBy   User     @relation("MateriCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Tugas {
+  id          String   @id @default(uuid())
+  judul       String
+  deskripsi   String?
+  deadline    DateTime
+  mapelId     String
+  mapel       Mapel    @relation(fields: [mapelId], references: [id])
+  kelasId     String
+  kelas       Kelas    @relation(fields: [kelasId], references: [id])
+  createdById String
+  createdBy   User     @relation("TugasCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  nilai       Nilai[]
+}
+
+model Ujian {
+  id          String   @id @default(uuid())
+  judul       String
+  deskripsi   String?
+  tanggal     DateTime
+  mapelId     String
+  mapel       Mapel    @relation(fields: [mapelId], references: [id])
+  kelasId     String
+  kelas       Kelas    @relation(fields: [kelasId], references: [id])
+  createdById String
+  createdBy   User     @relation("UjianCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  nilai       Nilai[]
+}
+
+model Nilai {
+  id       String   @id @default(uuid())
+  siswaId  String
+  siswa    User     @relation(fields: [siswaId], references: [id])
+  tugasId  String?
+  tugas    Tugas?   @relation(fields: [tugasId], references: [id])
+  ujianId  String?
+  ujian    Ujian?   @relation(fields: [ujianId], references: [id])
+  nilai    Float
+  createdAt DateTime @default(now())
+}

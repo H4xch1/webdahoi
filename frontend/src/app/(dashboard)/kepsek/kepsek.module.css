@@ -1,0 +1,55 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.banner {
+  border-radius: 20px;
+  padding: 2.5rem;
+  background: linear-gradient(120deg, #b98d1f, #d4af37);
+  color: #1a1206;
+  text-align: center;
+  font-weight: 700;
+}
+
+.cardRow {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.card {
+  flex: 1;
+  min-width: 220px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--color-rinas-panel);
+}
+
+.cardTop {
+  height: 8px;
+}
+.gold { background: var(--color-rinas-gold); }
+.green { background: var(--color-rinas-green); }
+.red { background: var(--color-rinas-red); }
+
+.cardBody {
+  padding: 1.4rem;
+  text-align: center;
+}
+.cardBody h3 {
+  margin-bottom: 1rem;
+  color: var(--color-rinas-text);
+}
+
+.exportBtn {
+  background: var(--color-rinas-green);
+  color: #fff;
+  padding: 0.5rem 1.3rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+.exportBtn:hover {
+  background: var(--color-rinas-green-dark);
+}

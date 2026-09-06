@@ -1,0 +1,122 @@
+.landingRoot {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(180deg, rgba(11, 18, 32, 0.85), rgba(11, 18, 32, 0.95)),
+    url("/landing-bg.jpg") center/cover no-repeat;
+  overflow: hidden;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.08), transparent 60%);
+  pointer-events: none;
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 3rem;
+  z-index: 2;
+}
+
+.logoText {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.6rem;
+  color: var(--color-rinas-gold);
+  letter-spacing: 0.08em;
+}
+
+.loginBtn {
+  border: 1px solid var(--color-rinas-gold);
+  color: var(--color-rinas-gold);
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+.loginBtn:hover {
+  background: var(--color-rinas-gold);
+  color: #10182b;
+}
+
+.hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 2;
+  padding: 2rem;
+}
+
+.title {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 900;
+  color: var(--color-rinas-gold-soft);
+  text-shadow: 0 4px 30px rgba(212, 175, 55, 0.25);
+}
+
+.subtitle {
+  margin-top: 0.5rem;
+  font-size: 1.3rem;
+  color: var(--color-rinas-muted);
+  font-style: italic;
+}
+
+.ctaBtn {
+  margin-top: 2rem;
+  background: var(--color-rinas-green);
+  color: #fff;
+  padding: 0.8rem 2.2rem;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(47, 158, 91, 0.35);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.ctaBtn:hover {
+  background: var(--color-rinas-green-dark);
+  transform: translateY(-2px);
+}
+
+.infoRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: center;
+  padding: 2rem 3rem 4rem;
+  z-index: 2;
+}
+
+.infoCard {
+  background: var(--color-rinas-panel);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 14px;
+  padding: 1.4rem 1.6rem;
+  width: 260px;
+}
+.infoCard h3 {
+  color: var(--color-rinas-gold);
+  margin-bottom: 0.4rem;
+  font-size: 1.1rem;
+}
+.infoCard p {
+  color: var(--color-rinas-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.8rem;
+  color: var(--color-rinas-muted);
+  z-index: 2;
+}

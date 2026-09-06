@@ -1,0 +1,110 @@
+.loginRoot {
+  display: flex;
+  min-height: 100vh;
+  background: var(--color-rinas-bg);
+}
+
+.visualSide {
+  flex: 1.1;
+  position: relative;
+  background: linear-gradient(160deg, #0b1220 0%, #1a2542 100%);
+  display: none;
+}
+@media (min-width: 900px) {
+  .visualSide { display: block; }
+}
+
+.visualOverlay {
+  position: absolute;
+  inset: 0;
+  background: url("/login-illustration.jpg") center/cover no-repeat;
+  opacity: 0.9;
+}
+
+.brand {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  font-size: 1.8rem;
+  color: var(--color-rinas-gold);
+  font-weight: 800;
+  z-index: 2;
+}
+
+.formSide {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.card {
+  background: #e9e6da;
+  color: #1a1a1a;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 18px;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.cardTitle {
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.divider {
+  height: 2px;
+  background: var(--color-rinas-gold);
+  width: 60px;
+  margin: 0.8rem auto 1.6rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.label {
+  font-size: 0.85rem;
+  margin-top: 0.8rem;
+  font-weight: 600;
+}
+
+.input {
+  border: 1px solid #b6b0a0;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-family: inherit;
+  background: #fff;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--color-rinas-gold);
+}
+
+.errorText {
+  color: var(--color-rinas-red);
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+}
+
+.submitBtn {
+  margin-top: 1.6rem;
+  background: var(--color-rinas-green);
+  color: #fff;
+  padding: 0.7rem;
+  border-radius: 999px;
+  font-weight: 700;
+  transition: background 0.2s ease;
+}
+.submitBtn:hover {
+  background: var(--color-rinas-green-dark);
+}
+.submitBtn:disabled {
+  opacity: 0.6;
+}

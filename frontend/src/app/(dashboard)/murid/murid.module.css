@@ -1,0 +1,30 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.banner {
+  border: 1.5px solid var(--color-rinas-gold);
+  border-radius: 20px;
+  padding: 3rem 2rem;
+  text-align: center;
+  background: radial-gradient(circle at top, rgba(212, 175, 55, 0.12), transparent);
+}
+
+.banner h1 {
+  font-size: 2rem;
+  color: var(--color-rinas-gold-soft);
+}
+
+.infoBtn {
+  margin-top: 1.2rem;
+  background: #2a3a63;
+  color: #fff;
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+.infoBtn:hover {
+  background: #33447a;
+}

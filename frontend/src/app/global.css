@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  /* Rinascita palette: dark navy base, gold accent, deep green for success */
+  --color-rinas-bg: #0b1220;
+  --color-rinas-bg-soft: #101a30;
+  --color-rinas-panel: #16223d;
+  --color-rinas-gold: #d4af37;
+  --color-rinas-gold-soft: #e8cf7a;
+  --color-rinas-green: #2f9e5b;
+  --color-rinas-green-dark: #1f7a44;
+  --color-rinas-red: #c0392b;
+  --color-rinas-text: #f3ecd8;
+  --color-rinas-muted: #9aa4bd;
+
+  --font-display: "Playfair Display", serif;
+}
+
+html, body {
+  background-color: var(--color-rinas-bg);
+  color: var(--color-rinas-text);
+  font-family: var(--font-display);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.gold-outline {
+  border: 1px solid var(--color-rinas-gold);
+}
+
+.gold-divider {
+  background: linear-gradient(90deg, transparent, var(--color-rinas-gold), transparent);
+  height: 1px;
+}
