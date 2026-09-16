@@ -8,19 +8,45 @@ const router = Router();
 
 router.use(authMiddleware, authorize("ADMIN_UTAMA"));
 
+const userSelect = {
+  id: true,
+  name: true,
+  email: true,
+  nik: true,
+  nis: true,
+  nip: true,
+  role: true,
+  kelasId: true,
+} as const;
+
 router.get("/users", async (req, res) => {
-  const users = await prisma.user.findMany({
-    select: { id: true, nama: true, email: true, nis: true, role: true, kelasId: true },
-  });
+  const users = await prisma.user.findMany({ select: userSelect });
   res.json({ users });
 });
 
 router.post("/users", async (req, res) => {
-  const { nama, email, nis, password, role, kelasId, jurusanId } = req.body;
-  const hashed = await hashPassword(password);
+  const { name, email, nik, nis, nip, password, role, kelasId } = req.body;
+
+  if (!name || !email || !role) {
+    return res.status(400).json({ message: "Nama, email, dan role wajib diisi" });
+  }
+
+  const hashed = password ? await hashPassword(password) : null;
+
   const user = await prisma.user.create({
-    data: { nama, email, nis, password: hashed, role, kelasId, jurusanId },
+    data: {
+      name: name,
+      email: email,
+      nik: nik ?? null,
+      nis: nis ?? null,
+      nip: nip ?? null,
+      password: hashed,
+      role: role,
+      kelasId: kelasId ?? null,
+    },
+    select: userSelect,
   });
+
   res.status(201).json({ user });
 });
 
@@ -31,7 +57,12 @@ router.delete("/users/:id", async (req, res) => {
 
 router.post("/kelas", async (req, res) => {
   const { nama, jurusanId } = req.body;
-  const kelas = await prisma.kelas.create({ data: { nama, jurusanId } });
+
+  if (!nama || !jurusanId) {
+    return res.status(400).json({ message: "Nama kelas dan jurusan wajib diisi" });
+  }
+
+  const kelas = await prisma.kelas.create({ data: { nama: nama, jurusanId: jurusanId } });
   res.status(201).json({ kelas });
 });
 

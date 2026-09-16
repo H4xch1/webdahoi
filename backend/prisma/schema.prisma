@@ -1,10 +1,12 @@
+// D:\webdahoi\backend\prisma\schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled (-pooler)
+  directUrl = env("DIRECT_URL") // direct (tanpa -pooler) → dipakai migrate
 }
 
 enum Role {
@@ -15,23 +17,42 @@ enum Role {
   ADMIN_UTAMA
 }
 
+enum StatusAbsen {
+  HADIR
+  IZIN
+  SAKIT
+  ALPA
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
-  password  String
+  password  String? // nullable: user Google login tidak punya password
+  googleId  String?  @unique
   name      String
+  nik       String?  @unique // murid
+  nis       String?  @unique
+  nip       String?  @unique // guru / staff
   role      Role
+  avatarUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   kelasId String?
   kelas   Kelas?  @relation(fields: [kelasId], references: [id])
 
-  guruMapel GuruMapel[]
-  tugas     Tugas[]      @relation("TugasCreatedBy")
-  ujian     Ujian[]      @relation("UjianCreatedBy")
-  materi    Materi[]     @relation("MateriCreatedBy")
-  nilai     Nilai[]
+  guruMapel      GuruMapel[]
+  tugas          Tugas[]        @relation("TugasCreatedBy")
+  ujian          Ujian[]        @relation("UjianCreatedBy")
+  materi         Materi[]       @relation("MateriCreatedBy")
+  nilai          Nilai[]
+  submissions    Submission[]
+  jawabanUjian   JawabanUjian[]
+  absensi        Absensi[]      @relation("AbsensiSiswa")
+  absensiDicatat Absensi[]      @relation("AbsensiDicatatOleh")
+
+  @@index([role])
+  @@index([kelasId])
 }
 
 model Jurusan {
@@ -41,15 +62,18 @@ model Jurusan {
 }
 
 model Kelas {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   nama      String
   jurusanId String
-  jurusan   Jurusan  @relation(fields: [jurusanId], references: [id])
+  jurusan   Jurusan   @relation(fields: [jurusanId], references: [id])
   siswa     User[]
   mapel     Mapel[]
   tugas     Tugas[]
   ujian     Ujian[]
   materi    Materi[]
+  absensi   Absensi[]
+
+  @@unique([nama, jurusanId])
 }
 
 model Mapel {
@@ -60,14 +84,17 @@ model Mapel {
   tugas     Tugas[]
   ujian     Ujian[]
   materi    Materi[]
+  absensi   Absensi[]
 }
 
 model GuruMapel {
   id      String @id @default(uuid())
   guruId  String
-  guru    User   @relation(fields: [guruId], references: [id])
+  guru    User   @relation(fields: [guruId], references: [id], onDelete: Cascade)
   mapelId String
-  mapel   Mapel  @relation(fields: [mapelId], references: [id])
+  mapel   Mapel  @relation(fields: [mapelId], references: [id], onDelete: Cascade)
+
+  @@unique([guruId, mapelId])
 }
 
 model Materi {
@@ -85,43 +112,118 @@ model Materi {
 }
 
 model Tugas {
-  id          String   @id @default(uuid())
+  id          String       @id @default(uuid())
   judul       String
   deskripsi   String?
   deadline    DateTime
   mapelId     String
-  mapel       Mapel    @relation(fields: [mapelId], references: [id])
+  mapel       Mapel        @relation(fields: [mapelId], references: [id])
   kelasId     String
-  kelas       Kelas    @relation(fields: [kelasId], references: [id])
+  kelas       Kelas        @relation(fields: [kelasId], references: [id])
   createdById String
-  createdBy   User     @relation("TugasCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
+  createdBy   User         @relation("TugasCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  submissions Submission[]
   nilai       Nilai[]
+}
+
+model Submission {
+  id        String    @id @default(uuid())
+  tugasId   String
+  tugas     Tugas     @relation(fields: [tugasId], references: [id], onDelete: Cascade)
+  siswaId   String
+  siswa     User      @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  fileUrl   String?
+  catatan   String?
+  nilai     Float?
+  feedback  String?
+  gradedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([tugasId, siswaId])
 }
 
 model Ujian {
-  id          String   @id @default(uuid())
+  id          String         @id @default(uuid())
   judul       String
   deskripsi   String?
   tanggal     DateTime
+  durasiMenit Int?
   mapelId     String
-  mapel       Mapel    @relation(fields: [mapelId], references: [id])
+  mapel       Mapel          @relation(fields: [mapelId], references: [id])
   kelasId     String
-  kelas       Kelas    @relation(fields: [kelasId], references: [id])
+  kelas       Kelas          @relation(fields: [kelasId], references: [id])
   createdById String
-  createdBy   User     @relation("UjianCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
+  createdBy   User           @relation("UjianCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime       @default(now())
+  soal        Soal[]
+  jawaban     JawabanUjian[]
   nilai       Nilai[]
 }
 
-model Nilai {
-  id       String   @id @default(uuid())
-  siswaId  String
-  siswa    User     @relation(fields: [siswaId], references: [id])
-  tugasId  String?
-  tugas    Tugas?   @relation(fields: [tugasId], references: [id])
-  ujianId  String?
-  ujian    Ujian?   @relation(fields: [ujianId], references: [id])
-  nilai    Float
+model Soal {
+  id           String         @id @default(uuid())
+  ujianId      String
+  ujian        Ujian          @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  pertanyaan   String
+  opsiA        String
+  opsiB        String
+  opsiC        String
+  opsiD        String
+  jawabanBenar String // "A" | "B" | "C" | "D"
+  bobot        Int            @default(1)
+  urutan       Int            @default(0)
+  jawaban      JawabanUjian[]
+
+  @@index([ujianId])
+}
+
+model JawabanUjian {
+  id        String   @id @default(uuid())
+  ujianId   String
+  ujian     Ujian    @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  soalId    String
+  soal      Soal     @relation(fields: [soalId], references: [id], onDelete: Cascade)
+  siswaId   String
+  siswa     User     @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  pilihan   String
+  benar     Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@unique([soalId, siswaId])
+  @@index([ujianId, siswaId])
+}
+
+model Nilai {
+  id        String   @id @default(uuid())
+  siswaId   String
+  siswa     User     @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  tugasId   String?
+  tugas     Tugas?   @relation(fields: [tugasId], references: [id])
+  ujianId   String?
+  ujian     Ujian?   @relation(fields: [ujianId], references: [id])
+  nilai     Float
+  createdAt DateTime @default(now())
+
+  @@index([siswaId])
+}
+
+model Absensi {
+  id          String      @id @default(uuid())
+  tanggal     DateTime    @db.Date
+  status      StatusAbsen @default(HADIR)
+  keterangan  String?
+  siswaId     String
+  siswa       User        @relation("AbsensiSiswa", fields: [siswaId], references: [id], onDelete: Cascade)
+  kelasId     String
+  kelas       Kelas       @relation(fields: [kelasId], references: [id])
+  mapelId     String?
+  mapel       Mapel?      @relation(fields: [mapelId], references: [id])
+  dicatatById String
+  dicatatBy   User        @relation("AbsensiDicatatOleh", fields: [dicatatById], references: [id])
+  createdAt   DateTime    @default(now())
+
+  @@unique([siswaId, tanggal, mapelId])
+  @@index([kelasId, tanggal])
 }
