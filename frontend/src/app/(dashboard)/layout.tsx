@@ -8,6 +8,11 @@ async function getCurrentUser() {
   const token = cookieStore.get("token")?.value;
   if (!token) return null;
 
+    console.log(  
+    "NEXT_PUBLIC_BACKEND_URL:",  
+    process.env.NEXT_PUBLIC_BACKEND_URL  
+  ); 
+
   const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/me`, {
     headers: { Cookie: `token=${token}` },
     cache: "no-store",

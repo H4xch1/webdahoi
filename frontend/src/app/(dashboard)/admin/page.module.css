@@ -1,0 +1,76 @@
+.page {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.greeting {
+  background: #2563eb;
+  color: #fff;
+  padding: 24px;
+  border-radius: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 16px;
+}
+
+.count {
+  margin: 8px 0 16px;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.link {
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: #e5e7eb;
+  color: #111827;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.export {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #16a34a;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.loading {
+  color: #6b7280;
+}

@@ -6,14 +6,14 @@ import UserTable from "@/components/admin/UserTable";
 import { adminApi, type AdminUser } from "@/lib/adminApi";
 import styles from "./page.module.css";
 
-export default function AdminMuridPage() {
+export default function AdminKepsekPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
     setLoading(true);
     adminApi
-      .listUsers("MURID")
+      .listUsers("KEPSEK")
       .then(setUsers)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -24,7 +24,7 @@ export default function AdminMuridPage() {
   }, [load]);
 
   async function remove(id: string) {
-    if (!confirm("Hapus siswa ini?")) return;
+    if (!confirm("Hapus kepala sekolah ini?")) return;
     await adminApi.deleteUser(id);
     load();
   }
@@ -32,16 +32,16 @@ export default function AdminMuridPage() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>Manage Siswa</h1>
-        <Link className={styles.register} href="/admin/register?role=MURID">
-          Register Murid
+        <h1 className={styles.title}>Manage Kepala Sekolah</h1>
+        <Link className={styles.register} href="/admin/register?role=KEPSEK">
+          Register Kepsek
         </Link>
       </header>
 
       {loading ? (
         <p className={styles.loading}>Memuat data...</p>
       ) : (
-        <UserTable users={users} onDelete={remove} />
+        <UserTable users={users} showRole onDelete={remove} />
       )}
     </main>
   );
