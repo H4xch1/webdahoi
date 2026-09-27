@@ -2,30 +2,22 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { authorize } from "../middleware/authorize.js";
-
-
 const router = Router();
-
 router.use(authMiddleware, authorize("KURIKULUM"));
-
 router.get("/guru", async (req, res) => {
-  const guru = await prisma.user.findMany({ where: { role: "GURU" } });
-  res.json({ guru });
+    const guru = await prisma.user.findMany({ where: { role: "GURU" } });
+    res.json({ guru });
 });
-
 router.get("/materi", async (req, res) => {
-  const materi = await prisma.materi.findMany();
-  res.json({ materi });
+    const materi = await prisma.materi.findMany();
+    res.json({ materi });
 });
-
 router.get("/tugas", async (req, res) => {
-  const tugas = await prisma.tugas.findMany();
-  res.json({ tugas });
+    const tugas = await prisma.tugas.findMany();
+    res.json({ tugas });
 });
-
 router.get("/penilaian", async (req, res) => {
-  const nilai = await prisma.nilai.findMany();
-  res.json({ nilai });
+    const nilai = await prisma.nilai.findMany();
+    res.json({ nilai });
 });
-
 export default router;

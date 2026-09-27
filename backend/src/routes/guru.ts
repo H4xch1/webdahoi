@@ -2,9 +2,9 @@ import { Router, type Response, type NextFunction } from "express";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-import { prisma } from "../lib/prisma";
-import { authMiddleware, type AuthRequest } from "../middleware/auth";
-import { authorize } from "../middleware/authorize";
+import { prisma } from "../lib/prisma.js";
+import { authMiddleware, type AuthRequest } from "../middleware/auth.js";
+import { authorize } from "../middleware/authorize.js";
 
 const router = Router();
 

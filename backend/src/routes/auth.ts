@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { OAuth2Client } from "google-auth-library";
-import { prisma } from "../lib/prisma";
-import { comparePassword } from "../utils/password";
-import { signToken } from "../utils/jwt";
-import { validate } from "../middleware/validate";
-import { loginSchema, googleLoginSchema } from "../schemas/auth.schema";
-import { authMiddleware, AuthRequest } from "../middleware/auth";
+import { prisma } from "../lib/prisma.js";
+import { comparePassword } from "../utils/password.js";
+import { signToken } from "../utils/jwt.js";
+import { validate } from "../middleware/validate.js";
+import { loginSchema, googleLoginSchema } from "../schemas/auth.schema.js";
+import { authMiddleware, AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);

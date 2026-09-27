@@ -9,10 +9,7 @@ import tugasRoutes from "./tugas.js";
 import ujianRoutes from "./ujian.js";
 import materiRoutes from "./materi.js";
 import absenRoutes from "./absen.js";
-
-
 const router = Router();
-
 router.use("/auth", authRoutes);
 router.use("/admin", adminRoutes);
 router.use("/murid", muridRoutes);
@@ -23,5 +20,4 @@ router.use("/tugas", tugasRoutes);
 router.use("/ujian", ujianRoutes);
 router.use("/materi", materiRoutes);
 router.use("/absen", absenRoutes);
-
 export default router;
