@@ -1,4 +1,5 @@
 // D:\webdahoi\backend\prisma\schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -25,22 +26,22 @@ enum StatusAbsen {
 }
 
 model User {
-  id          String   @id @default(uuid())
-  email       String   @unique
-  password    String? // nullable: user Google login tidak punya password
-  googleId    String?  @unique
-  name        String
-  nik         String   @unique // murid
-  nis         String?  @unique
-  nip         String?  @unique // guru / staff
-  role        Role
-  avatarUrl   String?
-  createdAt   DateTime @default(now())
-  kelasDiajar Kelas[]  @relation("GuruKelas")
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String? // nullable: user Google login tidak punya password
+  googleId  String?  @unique
+  name      String
+  nik       String   @unique // murid
+  nis       String?  @unique
+  nip       String?  @unique // guru / staff
+  role      Role
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  kelasId String?
-  kelas   Kelas?  @relation(fields: [kelasId], references: [id])
+  kelasId     String?
+  kelas       Kelas?  @relation(fields: [kelasId], references: [id], onDelete: Restrict)
+  kelasDiajar Kelas[] @relation("GuruKelas")
 
   guruMapel      GuruMapel[]
   tugas          Tugas[]        @relation("TugasCreatedBy")
@@ -62,20 +63,32 @@ model Jurusan {
   kelas Kelas[]
 }
 
+model Tingkat {
+  id    String  @id @default(uuid())
+  nama  String  @unique
+  kelas Kelas[]
+}
+
 model Kelas {
-  id        String    @id @default(uuid())
+  id        String @id @default(uuid())
   nama      String
+
   jurusanId String
-  jurusan   Jurusan   @relation(fields: [jurusanId], references: [id])
-  siswa     User[]
-  mapel     Mapel[]
-  tugas     Tugas[]
-  ujian     Ujian[]
-  materi    Materi[]
-  absensi   Absensi[]
-  guru      User[]    @relation("GuruKelas")
+  jurusan   Jurusan @relation(fields: [jurusanId], references: [id])
+
+  tingkatId String?
+  tingkat   Tingkat? @relation(fields: [tingkatId], references: [id], onDelete: Restrict)
+
+  siswa   User[]
+  guru    User[]    @relation("GuruKelas")
+  mapel   Mapel[]
+  tugas   Tugas[]
+  ujian   Ujian[]
+  materi  Materi[]
+  absensi Absensi[]
 
   @@unique([nama, jurusanId])
+  @@index([tingkatId])
 }
 
 model Mapel {
@@ -130,18 +143,18 @@ model Tugas {
 }
 
 model Submission {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   tugasId   String
-  tugas     Tugas     @relation(fields: [tugasId], references: [id], onDelete: Cascade)
+  tugas     Tugas    @relation(fields: [tugasId], references: [id], onDelete: Cascade)
   siswaId   String
-  siswa     User      @relation(fields: [siswaId], references: [id], onDelete: Cascade)
+  siswa     User     @relation(fields: [siswaId], references: [id], onDelete: Cascade)
   fileUrl   String?
   catatan   String?
   nilai     Float?
   feedback  String?
   gradedAt  DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([tugasId, siswaId])
 }
@@ -173,7 +186,7 @@ model Soal {
   opsiB        String
   opsiC        String
   opsiD        String
-  jawabanBenar String // "A" | "B" | "C" | "D"
+  jawabanBenar String         // "A" | "B" | "C" | "D"
   bobot        Int            @default(1)
   urutan       Int            @default(0)
   jawaban      JawabanUjian[]

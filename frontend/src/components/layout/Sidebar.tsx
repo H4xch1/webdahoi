@@ -12,7 +12,7 @@ import {
   Users,
   BarChart3,
   ShieldCheck,
-  UserPlus,
+  School,
 } from "lucide-react";
 
 import { api } from "@/lib/api-client";
@@ -136,6 +136,11 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
       exact: true,
     },
     {
+      label: "Manage Jurusan / Kelas",
+      href: "/admin/akademik",
+      icon: <School size={18} />,
+    },
+    {
       label: "Manage Murid",
       href: "/admin/murid",
       icon: <Users size={18} />,
@@ -161,6 +166,7 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
       icon: <ShieldCheck size={18} />,
     },
   ],
+
 };
 
 export default function Sidebar({ role }: { role: string }) {

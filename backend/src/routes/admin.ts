@@ -4,10 +4,13 @@ import { prisma } from "../lib/prisma.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { authorize } from "../middleware/authorize.js";
 import { hashPassword } from "../utils/password.js";
+import adminAkademikRoutes from "./admin-akademik.js";
+
 
 const router = Router();
 
 router.use(authMiddleware, authorize("ADMIN_UTAMA"));
+router.use("/akademik", adminAkademikRoutes);
 
 const userSelect = {
   id: true,
