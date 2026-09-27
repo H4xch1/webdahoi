@@ -1,5 +1,10 @@
-const BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+const BASE =  
+  typeof window === "undefined"  
+    ? (  
+        process.env.NEXT_PUBLIC_BACKEND_URL ||  
+        "http://localhost:4000/api"  
+      ).replace(/\/+$/, "")  
+    : "/backend-api"; 
 
 export type Role =
   | "ADMIN_UTAMA"
