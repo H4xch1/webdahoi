@@ -6,6 +6,11 @@ interface RequestOptions extends RequestInit {
 
 export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { token, headers, ...rest } = options;
+  console.log("API request:", {
+  base: BASE_URL,
+  path,
+  url: `${BASE_URL}${path}`,
+});
 
   const res = await fetch(`${BASE_URL}${path}`, {
     ...rest,

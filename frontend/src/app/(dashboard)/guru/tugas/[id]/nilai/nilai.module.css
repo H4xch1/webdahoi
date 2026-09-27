@@ -1,0 +1,200 @@
+.assignment {
+  margin-bottom: 22px;
+}
+
+.assignment h2 {
+  margin: 18px 0 12px;
+  color: #dfc477;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.6rem;
+}
+
+.description {
+  color: #adb7cc;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.counts span {
+  padding: 8px 12px;
+  border: 1px solid #39435c;
+  border-radius: 8px;
+  background: #10192b;
+  color: #d5dcec;
+  font-size: 0.8rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.toolbar label {
+  width: min(100%, 420px);
+}
+
+.list {
+  display: grid;
+  gap: 24px;
+}
+
+.submission {
+  padding: 24px;
+  border: 1px solid rgb(223 196 119 / 30%);
+  border-radius: 18px;
+  background: #141c30;
+}
+
+.studentHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  place-items: center;
+  border: 1px solid rgb(223 196 119 / 30%);
+  border-radius: 14px;
+  background: #23334b;
+  color: #dfc477;
+  font-family: Georgia, serif;
+  font-size: 1.4rem;
+}
+
+.studentInfo {
+  flex: 1;
+  min-width: 150px;
+}
+
+.studentInfo h2 {
+  margin: 0 0 5px;
+  font-size: 1.05rem;
+}
+
+.studentInfo p {
+  margin: 0;
+  color: #adb7cc;
+  font-size: 0.82rem;
+}
+
+.submissionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+  color: #adb7cc;
+  font-size: 0.82rem;
+}
+
+.submissionMeta p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.late {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border: 1px solid rgb(255 145 145 / 30%);
+  border-radius: 999px;
+  background: rgb(156 48 62 / 15%);
+  color: #ffb6b6;
+  font-size: 0.75rem;
+}
+
+.answer {
+  min-width: 0;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid #303d57;
+  border-radius: 12px;
+  background: #0c1324;
+}
+
+.answer h3 {
+  margin: 0 0 12px;
+  color: #dfc477;
+  font-size: 0.9rem;
+}
+
+.answer p {
+  margin-bottom: 18px;
+  color: #d5dcec;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.gradeGrid {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.feedback {
+  min-height: 110px;
+}
+
+.cardFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #303d57;
+}
+
+@media (max-width: 720px) {
+  .submission {
+    padding: 18px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar label {
+    width: 100%;
+  }
+
+  .gradeGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .answer {
+    padding: 16px;
+  }
+
+  .cardFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cardFooter button {
+    width: 100%;
+  }
+
+  .counts {
+    gap: 8px;
+  }
+}

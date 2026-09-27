@@ -25,18 +25,19 @@ enum StatusAbsen {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String? // nullable: user Google login tidak punya password
-  googleId  String?  @unique
-  name      String
-  nik       String?  @unique // murid
-  nis       String?  @unique
-  nip       String?  @unique // guru / staff
-  role      Role
-  avatarUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String? // nullable: user Google login tidak punya password
+  googleId    String?  @unique
+  name        String
+  nik         String   @unique // murid
+  nis         String?  @unique
+  nip         String?  @unique // guru / staff
+  role        Role
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  kelasDiajar Kelas[]  @relation("GuruKelas")
+  updatedAt   DateTime @updatedAt
 
   kelasId String?
   kelas   Kelas?  @relation(fields: [kelasId], references: [id])
@@ -72,6 +73,7 @@ model Kelas {
   ujian     Ujian[]
   materi    Materi[]
   absensi   Absensi[]
+  guru      User[]    @relation("GuruKelas")
 
   @@unique([nama, jurusanId])
 }

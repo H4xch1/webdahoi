@@ -1,211 +1,399 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { adminApi, type Jurusan, type Kelas, type Role } from "@/lib/adminApi";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { adminApi } from "@/lib/adminApi";
 import styles from "./page.module.css";
 
-const ROLES: Role[] = ["MURID", "GURU", "KEPSEK", "KURIKULUM", "ADMIN_UTAMA"];
+type Role =
+  | "MURID"
+  | "GURU"
+  | "KEPSEK"
+  | "KURIKULUM"
+  | "ADMIN_UTAMA";
 
-const REDIRECT: Record<Role, string> = {
-  MURID: "/admin/murid",
-  GURU: "/admin/guru",
-  KEPSEK: "/admin/kepsek",
-  KURIKULUM: "/admin/kurikulum",
-  ADMIN_UTAMA: "/admin",
+type Kelas = {
+  id: string;
+  nama: string;
+  jurusanId: string;
+  jurusan?: {
+    id: string;
+    nama: string;
+  };
 };
 
-function RegisterFormInner() {
+const ROLE_OPTIONS: { value: Role; label: string }[] = [
+  { value: "MURID", label: "Murid" },
+  { value: "GURU", label: "Guru" },
+  { value: "KEPSEK", label: "Kepala Sekolah" },
+  { value: "KURIKULUM", label: "Kurikulum" },
+  { value: "ADMIN_UTAMA", label: "Admin Utama" },
+];
+
+const REDIRECT_BY_ROLE: Record<Role, string> = {
+  MURID: "/admin/murid",
+  GURU: "/admin/guru",
+  KEPSEK: "/admin/admin",
+  KURIKULUM: "/admin/admin",
+  ADMIN_UTAMA: "/admin/admin",
+};
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+export default function RegisterPage() {
   const router = useRouter();
-  const params = useSearchParams();
+  const submittingRef = useRef(false);
 
-  const initialRole = (params.get("role") as Role) ?? "MURID";
+  const [role, setRole] = useState<Role>("MURID");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [role, setRole] = useState<Role>(
-    ROLES.includes(initialRole) ? initialRole : "MURID"
-  );
-  const [nik, setNik] = useState("");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [kelasId, setKelasId] = useState("");
-  const [jurusanId, setJurusanId] = useState("");
+  const [kelasList, setKelasList] = useState<Kelas[]>([]);
+  const [kelasLoading, setKelasLoading] = useState(true);
+  const [kelasError, setKelasError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const [kelas, setKelas] = useState<Kelas[]>([]);
-  const [jurusan, setJurusan] = useState<Jurusan[]>([]);
-
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const isMurid = role === "MURID";
+  const [selectedKelasIds, setSelectedKelasIds] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!isMurid) return;
-    adminApi.listJurusan().then(setJurusan).catch(() => {});
-    adminApi.listKelas().then(setKelas).catch(() => {});
-  }, [isMurid]);
+    let active = true;
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    setLoading(true);
+    async function loadKelas() {
+      setKelasLoading(true);
+      setKelasError(null);
 
-    try {
-      await adminApi.createUser({
-        name,
-        nik,
-        email: email || null,
-        password,
-        role,
-        kelasId: isMurid && kelasId ? kelasId : null,
-      });
+      try {
+        const result = await adminApi.listKelas();
 
-      setSuccess(`${name} berhasil didaftarkan.`);
-      setNik("");
-      setName("");
-      setEmail("");
-      setPassword("");
-      setKelasId("");
-      setJurusanId("");
-
-      setTimeout(() => router.push(REDIRECT[role]), 800);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mendaftarkan pengguna");
-    } finally {
-      setLoading(false);
+        if (active) {
+          setKelasList(result);
+        }
+      } catch (err) {
+        if (active) {
+          setKelasList([]);
+          setKelasError(
+            errorMessage(err, "Gagal memuat daftar kelas.")
+          );
+        }
+      } finally {
+        if (active) {
+          setKelasLoading(false);
+        }
+      }
     }
+
+    void loadKelas();
+
+    return () => {
+      active = false;
+    };
+  }, [reloadKey]);
+
+  function changeRole(nextRole: Role) {
+    setRole(nextRole);
+    setSelectedKelasIds([]);
+    setError(null);
   }
 
-  const filteredKelas = jurusanId
-    ? kelas.filter((k) => k.jurusanId === jurusanId)
-    : kelas;
+  function toggleKelas(id: string) {
+    setSelectedKelasIds((current) =>
+      current.includes(id)
+        ? current.filter((kelasId) => kelasId !== id)
+        : [...current, id]
+    );
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (submittingRef.current) return;
+
+    const data = new FormData(event.currentTarget);
+    const nama = String(data.get("nama") ?? "").trim();
+    const email = String(data.get("email") ?? "").trim();
+    const nik = String(data.get("nik") ?? "").trim();
+    const nis = String(data.get("nis") ?? "").trim();
+    const nip = String(data.get("nip") ?? "").trim();
+    const kelasId = String(data.get("kelasId") ?? "").trim();
+
+    // Do not trim passwords.
+    const password = String(data.get("password") ?? "");
+    const confirmPassword = String(data.get("confirmPassword") ?? "");
+
+    setError(null);
+
+    if (!nama) {
+      setError("Nama lengkap wajib diisi.");
+      return;
+    }
+
+    if (!password) {
+      setError("Password wajib diisi.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Konfirmasi password tidak cocok.");
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      nama,
+      role,
+      password,
+      ...(email ? { email } : {}),
+      ...(nik ? { nik } : {}),
+      ...(role === "MURID"
+        ? {
+            ...(nis ? { nis } : {}),
+            ...(kelasId ? { kelasId } : {}),
+          }
+        : {
+            ...(nip ? { nip } : {}),
+          }),
+      ...(role === "GURU"
+        ? { kelasIds: selectedKelasIds }
+        : {}),
+    };
+
+    submittingRef.current = true;
+    setSaving(true);
+
+    try {
+      await adminApi.createUser(payload);
+    } catch (err) {
+      setError(errorMessage(err, "Registrasi gagal. Silakan coba lagi."));
+      submittingRef.current = false;
+      setSaving(false);
+      return;
+    }
+
+    // Keep submission locked while navigating after success.
+    router.push(REDIRECT_BY_ROLE[role]);
+    router.refresh();
+  }
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>Register Pengguna</h1>
+      <section className={styles.card}>
+        <header className={styles.header}>
+          <h1>Register Pengguna</h1>
+          <p>
+            Buat akun baru dan tentukan role pengguna.
+          </p>
+        </header>
 
-      <form className={styles.form} onSubmit={submit}>
-        <label className={styles.label}>
-          Pilih Role
-          <select
-            className={styles.input}
-            value={role}
-            onChange={(e) => setRole(e.target.value as Role)}
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={styles.label}>
-          NIK
-          <input
-            className={styles.input}
-            value={nik}
-            onChange={(e) => setNik(e.target.value)}
-            required
-          />
-        </label>
-
-        <label className={styles.label}>
-          Nama Lengkap
-          <input
-            className={styles.input}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </label>
-
-        <label className={styles.label}>
-          Email (opsional)
-          <input
-            className={styles.input}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-
-        <label className={styles.label}>
-          Password
-          <input
-            className={styles.input}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </label>
-
-        {isMurid && (
-          <>
-            <label className={styles.label}>
-              Pilih Jurusan
+        <form onSubmit={handleSubmit}>
+          <fieldset className={styles.formFields} disabled={saving}>
+            <div className={styles.field}>
+              <label htmlFor="role">Role</label>
               <select
-                className={styles.input}
-                value={jurusanId}
-                onChange={(e) => {
-                  setJurusanId(e.target.value);
-                  setKelasId("");
-                }}
+                id="role"
+                name="role"
+                value={role}
+                onChange={(event) =>
+                  changeRole(event.target.value as Role)
+                }
               >
-                <option value="">—</option>
-                {jurusan.map((j) => (
-                  <option key={j.id} value={j.id}>
-                    {j.nama}
+                {ROLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
 
-            <label className={styles.label}>
-              Pilih Kelas
-              <select
-                className={styles.input}
-                value={kelasId}
-                onChange={(e) => setKelasId(e.target.value)}
+            <div className={styles.grid}>
+              <div className={styles.field}>
+                <label htmlFor="nama">Nama Lengkap</label>
+                <input
+                  id="nama"
+                  name="nama"
+                  autoComplete="name"
+                  placeholder="Nama lengkap"
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="email">Email (opsional)</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="nama@sekolah.sch.id"
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="nik">NIK (opsional)</label>
+                <input
+                  id="nik"
+                  name="nik"
+                  inputMode="numeric"
+                  placeholder="Nomor Induk Kependudukan"
+                />
+              </div>
+
+              {role === "MURID" ? (
+                <div className={styles.field} key="nis">
+                  <label htmlFor="nis">NIS</label>
+                  <input
+                    id="nis"
+                    name="nis"
+                    inputMode="numeric"
+                    placeholder="Nomor Induk Siswa"
+                    required
+                  />
+                </div>
+              ) : (
+                <div className={styles.field} key="nip">
+                  <label htmlFor="nip">NIP (opsional)</label>
+                  <input
+                    id="nip"
+                    name="nip"
+                    inputMode="numeric"
+                    placeholder="Nomor Induk Pegawai"
+                  />
+                </div>
+              )}
+            </div>
+
+            {role === "MURID" && (
+              <div className={styles.field}>
+                <label htmlFor="kelasId">Kelas (opsional)</label>
+                <input
+                  id="kelasId"
+                  name="kelasId"
+                  placeholder="Masukkan ID kelas"
+                />
+              </div>
+            )}
+
+            {role === "GURU" && (
+              <fieldset className={styles.classSection}>
+                <legend>Kelas yang Diajar</legend>
+
+                <p className={styles.hint}>
+                  Pilih satu atau beberapa kelas. Boleh dikosongkan
+                  jika belum ada penugasan.
+                </p>
+
+                {kelasLoading ? (
+                  <p role="status" className={styles.hint}>
+                    Memuat daftar kelas...
+                  </p>
+                ) : kelasError ? (
+                  <div role="alert" className={styles.error}>
+                    <p>{kelasError}</p>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => setReloadKey((value) => value + 1)}
+                    >
+                      Coba Lagi
+                    </button>
+                  </div>
+                ) : kelasList.length === 0 ? (
+                  <p className={styles.hint}>
+                    Belum ada kelas. Tambahkan kelas melalui halaman
+                    pengelolaan kelas.
+                  </p>
+                ) : (
+                  <>
+                    <div className={styles.classList}>
+                      {kelasList.map((kelas) => (
+                        <label
+                          key={kelas.id}
+                          className={styles.classOption}
+                        >
+                          <input
+                            type="checkbox"
+                            name="kelasIds"
+                            value={kelas.id}
+                            checked={selectedKelasIds.includes(kelas.id)}
+                            onChange={() => toggleKelas(kelas.id)}
+                          />
+
+                          <span>
+                            <strong>{kelas.nama}</strong>
+                            {kelas.jurusan && (
+                              <small>{kelas.jurusan.nama}</small>
+                            )}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <p className={styles.hint} aria-live="polite">
+                      {selectedKelasIds.length} kelas dipilih.
+                    </p>
+                  </>
+                )}
+              </fieldset>
+            )}
+
+            <div className={styles.grid}>
+              <div className={styles.field}>
+                <label htmlFor="password">Password</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Password akun"
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="confirmPassword">
+                  Konfirmasi Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Ulangi password"
+                  required
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p role="alert" className={styles.error}>
+                {error}
+              </p>
+            )}
+
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => router.back()}
               >
-                <option value="">—</option>
-                {filteredKelas.map((k) => (
-                  <option key={k.id} value={k.id}>
-                    {k.nama}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </>
-        )}
+                Batal
+              </button>
 
-        {error && <p className={styles.error}>{error}</p>}
-        {success && <p className={styles.success}>{success}</p>}
-
-        <div className={styles.actions}>
-          <button className={styles.submit} type="submit" disabled={loading}>
-            {loading ? "Menyimpan..." : "Register"}
-          </button>
-          <button
-            className={styles.cancel}
-            type="button"
-            onClick={() => router.back()}
-          >
-            Batal
-          </button>
-        </div>
-      </form>
+              <button
+                type="submit"
+                className={styles.primaryButton}
+                disabled={
+                  saving ||
+                  (role === "GURU" &&
+                    (kelasLoading || Boolean(kelasError)))
+                }
+              >
+                {saving ? "Menyimpan..." : "Daftarkan Pengguna"}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      </section>
     </main>
-  );
-}
-
-export default function AdminRegisterPage() {
-  return (
-    <Suspense fallback={<p style={{ padding: 32 }}>Memuat...</p>}>
-      <RegisterFormInner />
-    </Suspense>
   );
 }

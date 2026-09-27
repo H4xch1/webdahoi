@@ -1,0 +1,146 @@
+.filters {
+  margin-bottom: 24px;
+}
+
+.loadButton {
+  display: flex;
+  align-items: flex-end;
+}
+
+.loadButton button {
+  width: 100%;
+}
+
+.registerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid #303d57;
+  border-radius: 12px;
+}
+
+.table {
+  width: 100%;
+  min-width: 660px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.table th {
+  padding: 15px;
+  background: #0c1324;
+  color: #dfc477;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.table td {
+  padding: 15px;
+  border-top: 1px solid #303d57;
+  vertical-align: middle;
+}
+
+.table th:first-child {
+  width: 38%;
+}
+
+.table th:nth-child(2) {
+  width: 23%;
+}
+
+.student {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.student strong,
+.student small {
+  display: block;
+}
+
+.student strong {
+  font-size: 0.9rem;
+}
+
+.student small {
+  margin-top: 6px;
+  color: #adb7cc;
+}
+
+.number {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border-radius: 8px;
+  background: #22304a;
+  color: #dfc477;
+  font-size: 0.8rem;
+}
+
+.saveRow,
+.dirtyNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+@media (max-width: 720px) {
+  .registerHeader,
+  .saveRow,
+  .dirtyNotice {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .table {
+    min-width: 0;
+  }
+
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table tr {
+    padding: 14px;
+    border-bottom: 1px solid #303d57;
+  }
+
+  .table tr:last-child {
+    border-bottom: 0;
+  }
+
+  .table td {
+    padding: 7px 0;
+    border: 0;
+  }
+}
