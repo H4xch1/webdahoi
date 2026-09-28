@@ -43,10 +43,7 @@ function requiredText(value: unknown, label: string): string {
   const result = value.trim();
 
   if (result.length > 120) {
-    throw new HttpError(
-      400,
-      `${label} maksimal 120 karakter.`,
-    );
+    throw new HttpError(400, `${label} maksimal 120 karakter.`);
   }
 
   return result;
@@ -73,8 +70,6 @@ function endpoint(
       const result = await work(req);
       res.status(status).json(result);
     } catch (error) {
-        console.error("[GET /api/admin/akademik]", error);
-
       if (error instanceof HttpError) {
         res.status(error.status).json({
           message: error.message,
@@ -82,25 +77,45 @@ function endpoint(
         return;
       }
 
+      // Log unexpected/database errors once.
+      console.error(
+        `[Admin Akademik] ${req.method} ${req.originalUrl}`,
+        error,
+      );
+
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         switch (error.code) {
-          case "P2002":
+          case "P2002": {
+            const entity = req.params.entity;
+
+            const message =
+              entity === "jurusan"
+                ? "Nama jurusan sudah digunakan."
+                : entity === "tingkat"
+                  ? "Nama tingkat sudah digunakan."
+                  : entity === "kelas"
+                    ? "Nama kelas sudah digunakan."
+                    : "Data sudah digunakan.";
+
             res.status(409).json({
-              message:
-                "Nama sudah digunakan. Untuk kelas, gunakan nama lengkap seperti X PPLG 1.",
+              message,
+              code: error.code,
             });
             return;
+          }
 
           case "P2003":
             res.status(409).json({
               message:
                 "Data masih digunakan atau pilihan jurusan/tingkat sudah tidak tersedia.",
+              code: error.code,
             });
             return;
 
           case "P2025":
             res.status(404).json({
               message: "Data tidak ditemukan. Muat ulang halaman.",
+              code: error.code,
             });
             return;
 
@@ -108,15 +123,22 @@ function endpoint(
             res.status(409).json({
               message:
                 "Data sedang berubah. Muat ulang lalu coba kembali.",
+              code: error.code,
+            });
+            return;
+
+          default:
+            res.status(500).json({
+              message: "Gagal memproses data akademik.",
+              code: error.code,
             });
             return;
         }
       }
 
-      console.error("Admin akademik error:", error);
-
       res.status(500).json({
         message: "Gagal memproses data akademik.",
+        code: "INTERNAL_ERROR",
       });
     }
   };
