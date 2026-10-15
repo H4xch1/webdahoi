@@ -1,25 +1,39 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+} from "react";
+
 import {
   adminAkademikApi,
   type AcademicClass,
   type AcademicData,
   type AcademicEntity,
+  type AcademicMapel,
   type AcademicOption,
 } from "@/lib/admin-akademik-api";
+
 import styles from "./page.module.css";
+
+type AcademicRow =
+  | AcademicOption
+  | AcademicClass
+  | AcademicMapel;
 
 const LABELS: Record<AcademicEntity, string> = {
   jurusan: "Jurusan",
   tingkat: "Tingkat",
   kelas: "Kelas",
+  mapel: "Mata Pelajaran",
 };
 
 const EMPTY_DATA: AcademicData = {
   jurusan: [],
   tingkat: [],
   kelas: [],
+  mapel: [],
 };
 
 function messageOf(error: unknown): string {
@@ -28,14 +42,29 @@ function messageOf(error: unknown): string {
     : "Terjadi kesalahan.";
 }
 
-export default function AdminAkademikPage() {
-  const [data, setData] = useState<AcademicData>(EMPTY_DATA);
-  const [entity, setEntity] = useState<AcademicEntity>("jurusan");
+function isClass(row: AcademicRow): row is AcademicClass {
+  return "jurusanId" in row;
+}
 
-  const [editingId, setEditingId] = useState<string | null>(null);
+function isMapel(row: AcademicRow): row is AcademicMapel {
+  return "_count" in row;
+}
+
+export default function AdminAkademikPage() {
+  const [data, setData] =
+    useState<AcademicData>(EMPTY_DATA);
+
+  const [entity, setEntity] =
+    useState<AcademicEntity>("jurusan");
+
+  const [editingId, setEditingId] =
+    useState<string | null>(null);
+
   const [nama, setNama] = useState("");
   const [jurusanId, setJurusanId] = useState("");
   const [tingkatId, setTingkatId] = useState("");
+  const [selectedMapelIds, setSelectedMapelIds] =
+    useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -59,13 +88,19 @@ export default function AdminAkademikPage() {
     adminAkademikApi
       .list()
       .then((next) => {
-        if (active) setData(next);
+        if (active) {
+          setData(next);
+        }
       })
       .catch((err: unknown) => {
-        if (active) setError(messageOf(err));
+        if (active) {
+          setError(messageOf(err));
+        }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       });
 
     return () => {
@@ -78,6 +113,7 @@ export default function AdminAkademikPage() {
     setNama("");
     setJurusanId("");
     setTingkatId("");
+    setSelectedMapelIds([]);
   }
 
   function changeEntity(next: AcademicEntity) {
@@ -87,34 +123,64 @@ export default function AdminAkademikPage() {
     setSuccess("");
   }
 
-  function editRow(row: AcademicOption | AcademicClass) {
+  function editRow(row: AcademicRow) {
     setEditingId(row.id);
     setNama(row.nama);
     setError("");
     setSuccess("");
 
-    if ("jurusanId" in row) {
+    if (isClass(row)) {
       setJurusanId(row.jurusanId);
       setTingkatId(row.tingkatId ?? "");
+      setSelectedMapelIds(
+        row.mapel.map((item) => item.id),
+      );
     } else {
       setJurusanId("");
       setTingkatId("");
+      setSelectedMapelIds([]);
     }
   }
 
-  async function save(event: FormEvent<HTMLFormElement>) {
+  function toggleMapel(
+    mapelId: string,
+    checked: boolean,
+  ) {
+    setSelectedMapelIds((current) => {
+      if (checked) {
+        return current.includes(mapelId)
+          ? current
+          : [...current, mapelId];
+      }
+
+      return current.filter((id) => id !== mapelId);
+    });
+  }
+
+  async function save(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
-    if (busy || loading) return;
+    if (busy || loading) {
+      return;
+    }
 
     const trimmedName = nama.trim();
 
     if (!trimmedName) {
-      setError("Nama wajib diisi.");
+      setError(
+        entity === "mapel"
+          ? "Nama mata pelajaran wajib diisi."
+          : "Nama wajib diisi.",
+      );
       return;
     }
 
-    if (entity === "kelas" && (!jurusanId || !tingkatId)) {
+    if (
+      entity === "kelas" &&
+      (!jurusanId || !tingkatId)
+    ) {
       setError("Pilih jurusan dan tingkat.");
       return;
     }
@@ -125,12 +191,23 @@ export default function AdminAkademikPage() {
 
     const input =
       entity === "kelas"
-        ? { nama: trimmedName, jurusanId, tingkatId }
-        : { nama: trimmedName };
+        ? {
+            nama: trimmedName,
+            jurusanId,
+            tingkatId,
+            mapelIds: selectedMapelIds,
+          }
+        : {
+            nama: trimmedName,
+          };
 
     try {
       if (editingId) {
-        await adminAkademikApi.update(entity, editingId, input);
+        await adminAkademikApi.update(
+          entity,
+          editingId,
+          input,
+        );
       } else {
         await adminAkademikApi.create(entity, input);
       }
@@ -139,10 +216,13 @@ export default function AdminAkademikPage() {
 
       try {
         await reload();
-        setSuccess(`${LABELS[entity]} berhasil disimpan.`);
+
+        setSuccess(
+          `${LABELS[entity]} berhasil disimpan.`,
+        );
       } catch {
         setError(
-          "Data berhasil disimpan, tetapi daftar gagal dimuat ulang. Klik Muat ulang.",
+          "Data berhasil disimpan, tetapi daftar gagal dimuat ulang.",
         );
       }
     } catch (err: unknown) {
@@ -152,14 +232,18 @@ export default function AdminAkademikPage() {
     }
   }
 
-  async function removeRow(row: AcademicOption) {
-    if (busy || loading) return;
+  async function removeRow(row: AcademicRow) {
+    if (busy || loading) {
+      return;
+    }
 
     const confirmed = window.confirm(
       `Hapus ${LABELS[entity].toLowerCase()} "${row.nama}"?\n\nData yang masih digunakan tidak dapat dihapus.`,
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setBusy(true);
     setError("");
@@ -168,14 +252,19 @@ export default function AdminAkademikPage() {
     try {
       await adminAkademikApi.remove(entity, row.id);
 
-      if (editingId === row.id) resetForm();
+      if (editingId === row.id) {
+        resetForm();
+      }
 
       try {
         await reload();
-        setSuccess(`${LABELS[entity]} berhasil dihapus.`);
+
+        setSuccess(
+          `${LABELS[entity]} berhasil dihapus.`,
+        );
       } catch {
         setError(
-          "Data berhasil dihapus, tetapi daftar gagal dimuat ulang. Klik Muat ulang.",
+          "Data berhasil dihapus, tetapi daftar gagal dimuat ulang.",
         );
       }
     } catch (err: unknown) {
@@ -196,19 +285,25 @@ export default function AdminAkademikPage() {
     }
   }
 
-  const rows: Array<AcademicOption | AcademicClass> = data[entity];
+  const rows: AcademicRow[] = data[entity];
+
   const disabled = loading || busy;
 
   const missingOptions =
     entity === "kelas" &&
-    (data.jurusan.length === 0 || data.tingkat.length === 0);
+    (data.jurusan.length === 0 ||
+      data.tingkat.length === 0);
 
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>Kelola Data Akademik</h1>
+        <h1 className={styles.title}>
+          Kelola Data Akademik
+        </h1>
+
         <p className={styles.subtitle}>
-          Tambah dan kelola jurusan, tingkat, serta kelas.
+          Tambah dan kelola jurusan, tingkat, kelas,
+          serta mata pelajaran.
         </p>
       </header>
 
@@ -216,7 +311,14 @@ export default function AdminAkademikPage() {
         aria-label="Jenis data akademik"
         className={styles.tabs}
       >
-        {(["jurusan", "tingkat", "kelas"] as const).map((item) => (
+        {(
+          [
+            "jurusan",
+            "tingkat",
+            "kelas",
+            "mapel",
+          ] as AcademicEntity[]
+        ).map((item) => (
           <button
             key={item}
             type="button"
@@ -224,7 +326,9 @@ export default function AdminAkademikPage() {
             aria-pressed={entity === item}
             onClick={() => changeEntity(item)}
             className={`${styles.button} ${styles.tab} ${
-              entity === item ? styles.activeTab : ""
+              entity === item
+                ? styles.activeTab
+                : ""
             }`}
           >
             {LABELS[item]} ({data[item].length})
@@ -252,7 +356,8 @@ export default function AdminAkademikPage() {
 
       <section className={styles.card}>
         <h2 className={styles.sectionTitle}>
-          {editingId ? "Edit" : "Tambah"} {LABELS[entity]}
+          {editingId ? "Edit" : "Tambah"}{" "}
+          {LABELS[entity]}
         </h2>
 
         {missingOptions && !loading && (
@@ -275,60 +380,139 @@ export default function AdminAkademikPage() {
                 required
                 maxLength={120}
                 value={nama}
-                onChange={(event) => setNama(event.target.value)}
+                onChange={(event) =>
+                  setNama(event.target.value)
+                }
                 className={styles.input}
                 placeholder={
                   entity === "jurusan"
                     ? "Contoh: PPLG"
                     : entity === "tingkat"
                       ? "Contoh: X, XI, XII"
-                      : "Contoh: X PPLG 1"
+                      : entity === "kelas"
+                        ? "Contoh: X PPLG 1"
+                        : "Contoh: Matematika"
                 }
               />
             </label>
 
             {entity === "kelas" && (
-              <div className={styles.formGrid}>
-                <label className={styles.field}>
-                  <span className={styles.label}>Jurusan</span>
+              <>
+                <div className={styles.formGrid}>
+                  <label className={styles.field}>
+                    <span className={styles.label}>
+                      Jurusan
+                    </span>
 
-                  <select
-                    required
-                    value={jurusanId}
-                    onChange={(event) =>
-                      setJurusanId(event.target.value)
-                    }
-                    className={styles.input}
-                  >
-                    <option value="">Pilih jurusan</option>
-                    {data.jurusan.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.nama}
+                    <select
+                      required
+                      value={jurusanId}
+                      onChange={(event) =>
+                        setJurusanId(event.target.value)
+                      }
+                      className={styles.input}
+                    >
+                      <option value="">
+                        Pilih jurusan
                       </option>
-                    ))}
-                  </select>
-                </label>
 
-                <label className={styles.field}>
-                  <span className={styles.label}>Tingkat</span>
+                      {data.jurusan.map((item) => (
+                        <option
+                          key={item.id}
+                          value={item.id}
+                        >
+                          {item.nama}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                  <select
-                    required
-                    value={tingkatId}
-                    onChange={(event) =>
-                      setTingkatId(event.target.value)
-                    }
-                    className={styles.input}
-                  >
-                    <option value="">Pilih tingkat</option>
-                    {data.tingkat.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.nama}
+                  <label className={styles.field}>
+                    <span className={styles.label}>
+                      Tingkat
+                    </span>
+
+                    <select
+                      required
+                      value={tingkatId}
+                      onChange={(event) =>
+                        setTingkatId(event.target.value)
+                      }
+                      className={styles.input}
+                    >
+                      <option value="">
+                        Pilih tingkat
                       </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+
+                      {data.tingkat.map((item) => (
+                        <option
+                          key={item.id}
+                          value={item.id}
+                        >
+                          {item.nama}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className={styles.field}>
+                  <span className={styles.label}>
+                    Mata Pelajaran
+                  </span>
+
+                  {data.mapel.length === 0 ? (
+                    <p className={styles.notice}>
+                      Belum ada mata pelajaran.
+                    </p>
+                  ) : (
+                    <>
+                      <div
+                        className={styles.checkboxGrid}
+                      >
+                        {data.mapel.map((item) => {
+                          const checked =
+                            selectedMapelIds.includes(
+                              item.id,
+                            );
+
+                          return (
+                            <label
+                              key={item.id}
+                              className={
+                                styles.checkboxItem
+                              }
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(event) =>
+                                  toggleMapel(
+                                    item.id,
+                                    event.target.checked,
+                                  )
+                                }
+                                className={
+                                  styles.checkbox
+                                }
+                              />
+
+                              <span>{item.nama}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      <span
+                        className={styles.selectedCount}
+                      >
+                        {selectedMapelIds.length} mata
+                        pelajaran dipilih.
+                      </span>
+                    </>
+                  )}
+                </div>
+              </>
             )}
 
             <div className={styles.actions}>
@@ -371,22 +555,33 @@ export default function AdminAkademikPage() {
         </div>
 
         {loading ? (
-          <p className={styles.emptyState}>Memuat data...</p>
+          <p className={styles.emptyState}>
+            Memuat data...
+          </p>
         ) : rows.length === 0 ? (
-          <p className={styles.emptyState}>Belum ada data.</p>
+          <p className={styles.emptyState}>
+            Belum ada data.
+          </p>
         ) : (
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
               <thead>
                 <tr>
                   <th scope="col">Nama</th>
+
                   {entity === "kelas" && (
                     <>
                       <th scope="col">Jurusan</th>
                       <th scope="col">Tingkat</th>
-                      <th scope="col">Siswa/anggota</th>
+                      <th scope="col">Mata Pelajaran</th>
+                      <th scope="col">Siswa</th>
                     </>
                   )}
+
+                  {entity === "mapel" && (
+                    <th scope="col">Penggunaan</th>
+                  )}
+
                   <th scope="col">Aksi</th>
                 </tr>
               </thead>
@@ -396,14 +591,42 @@ export default function AdminAkademikPage() {
                   <tr key={row.id}>
                     <td>{row.nama}</td>
 
-                    {"jurusanId" in row && (
-                      <>
-                        <td>{row.jurusan.nama}</td>
-                        <td>
-                          {row.tingkat?.nama ?? "Belum diatur"}
-                        </td>
-                        <td>{row._count.siswa}</td>
-                      </>
+                    {entity === "kelas" &&
+                      isClass(row) && (
+                        <>
+                          <td>{row.jurusan.nama}</td>
+
+                          <td>
+                            {row.tingkat?.nama ??
+                              "Belum diatur"}
+                          </td>
+
+                          <td>
+                            {row.mapel.length > 0
+                              ? row.mapel
+                                  .map(
+                                    (item) => item.nama,
+                                  )
+                                  .join(", ")
+                              : "Belum diatur"}
+                          </td>
+
+                          <td>{row._count.siswa}</td>
+                        </>
+                      )}
+
+                    {entity === "mapel" && (
+                      <td>
+                        {isMapel(row) && row._count
+                          ? Object.values(
+                              row._count,
+                            ).reduce(
+                              (total, count) =>
+                                total + count,
+                              0,
+                            )
+                          : 0}
+                      </td>
                     )}
 
                     <td>
@@ -420,7 +643,9 @@ export default function AdminAkademikPage() {
                         <button
                           type="button"
                           disabled={disabled}
-                          onClick={() => void removeRow(row)}
+                          onClick={() =>
+                            void removeRow(row)
+                          }
                           className={`${styles.button} ${styles.dangerButton}`}
                         >
                           Hapus

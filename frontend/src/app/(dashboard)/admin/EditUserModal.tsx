@@ -6,10 +6,12 @@ import {
   useState,
   type FormEvent,
 } from "react";
+
 import {
   adminApi,
   type AdminUser,
   type Kelas,
+  type Mapel,
   type Role,
   type UpdateUserInput,
 } from "@/lib/adminApi";
@@ -31,8 +33,10 @@ const ROLE_LABELS: Record<Role, string> = {
   ADMIN_UTAMA: "Admin Utama",
 };
 
-function message(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message
+    ? error.message
+    : fallback;
 }
 
 export default function EditUserModal({
@@ -45,16 +49,22 @@ export default function EditUserModal({
 
   const [user, setUser] = useState<AdminUser | null>(null);
   const [kelasList, setKelasList] = useState<Kelas[]>([]);
+  const [mapelList, setMapelList] = useState<Mapel[]>([]);
+
   const [selectedKelasIds, setSelectedKelasIds] = useState<string[]>(
+    []
+  );
+  const [selectedMapelIds, setSelectedMapelIds] = useState<string[]>(
     []
   );
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Open the native dialog and restore focus when it unmounts.
   useEffect(() => {
     const dialog = dialogRef.current;
     const previousFocus = document.activeElement;
@@ -67,7 +77,10 @@ export default function EditUserModal({
     document.body.style.overflow = "hidden";
 
     return () => {
-      dialog?.close();
+      if (dialog?.open) {
+        dialog.close();
+      }
+
       document.body.style.overflow = previousOverflow;
 
       if (
@@ -79,6 +92,7 @@ export default function EditUserModal({
     };
   }, []);
 
+  // Load account details and the options required by its role.
   useEffect(() => {
     let active = true;
 
@@ -86,25 +100,76 @@ export default function EditUserModal({
       setLoading(true);
       setLoadError("");
       setError("");
+      setUser(null);
+      setKelasList([]);
+      setMapelList([]);
+      setSelectedKelasIds([]);
+      setSelectedMapelIds([]);
 
       try {
         const account = await adminApi.getUser(userId);
 
-        const classes =
-          account.role === "MURID" || account.role === "GURU"
-            ? await adminApi.listKelas()
-            : [];
+        if (!active) return;
+
+        if (!account) {
+          throw new Error("Data pengguna tidak ditemukan.");
+        }
+
+        // Missing assignment data must not be treated as an empty
+        // selection, because that could clear existing assignments.
+        if (account.role === "GURU") {
+          if (!Array.isArray(account.kelasDiajar)) {
+            throw new Error(
+              "Data kelas guru belum lengkap. Respons detail pengguna harus menyertakan kelasDiajar."
+            );
+          }
+
+          if (!Array.isArray(account.mapelDiajar)) {
+            throw new Error(
+              "Data mata pelajaran guru belum lengkap. Respons detail pengguna harus menyertakan mapelDiajar."
+            );
+          }
+        }
+
+        const needsClasses =
+          account.role === "MURID" || account.role === "GURU";
+
+        const [classes, subjects] = await Promise.all([
+          needsClasses
+            ? adminApi.listKelas()
+            : Promise.resolve([] as Kelas[]),
+
+          account.role === "GURU"
+            ? adminApi.listMapel()
+            : Promise.resolve([] as Mapel[]),
+        ]);
 
         if (!active) return;
 
         setUser(account);
         setKelasList(classes);
-        setSelectedKelasIds(
-          account.kelasDiajar.map((kelas) => kelas.id)
-        );
+        setMapelList(subjects);
+
+        if (account.role === "GURU") {
+          setSelectedKelasIds(
+            Array.from(
+              new Set(account.kelasDiajar.map((kelas) => kelas.id))
+            )
+          );
+
+          setSelectedMapelIds(
+            Array.from(
+              new Set(
+                (account.mapelDiajar ?? []).map((mapel) => mapel.id)
+              )
+            )
+          );
+        }
       } catch (err) {
         if (active) {
-          setLoadError(message(err, "Gagal memuat data pengguna."));
+          setLoadError(
+            getErrorMessage(err, "Gagal memuat data pengguna.")
+          );
         }
       } finally {
         if (active) {
@@ -121,9 +186,8 @@ export default function EditUserModal({
   }, [userId, reloadKey]);
 
   function close() {
-    if (!submittingRef.current) {
-      onClose();
-    }
+    if (submittingRef.current) return;
+    onClose();
   }
 
   function toggleKelas(id: string) {
@@ -134,10 +198,24 @@ export default function EditUserModal({
     );
   }
 
+  function toggleMapel(id: string) {
+    setSelectedMapelIds((current) =>
+      current.includes(id)
+        ? current.filter((value) => value !== id)
+        : [...current, id]
+    );
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!user || loading || loadError || submittingRef.current) {
+    if (
+      !user ||
+      user.id !== userId ||
+      loading ||
+      loadError ||
+      submittingRef.current
+    ) {
       return;
     }
 
@@ -150,7 +228,7 @@ export default function EditUserModal({
     const nip = String(form.get("nip") ?? "").trim();
     const kelasId = String(form.get("kelasId") ?? "").trim();
 
-    // Passwords must not be trimmed.
+    // Preserve password whitespace exactly as entered.
     const password = String(form.get("password") ?? "");
     const confirmPassword = String(
       form.get("confirmPassword") ?? ""
@@ -179,25 +257,39 @@ export default function EditUserModal({
       nik,
       ...(password ? { password } : {}),
       ...(user.role === "MURID"
-        ? { nis, kelasId: kelasId || null }
+        ? {
+            nis,
+            kelasId: kelasId || null,
+          }
         : { nip }),
       ...(user.role === "GURU"
-        ? { kelasIds: selectedKelasIds }
+        ? {
+            kelasIds: selectedKelasIds,
+            mapelIds: selectedMapelIds,
+          }
         : {}),
     };
 
     submittingRef.current = true;
     setSaving(true);
 
+    let updated: AdminUser;
+
     try {
-      const updated = await adminApi.updateUser(user.id, payload);
-      submittingRef.current = false;
-      onSaved(updated);
+      updated = await adminApi.updateUser(user.id, payload);
     } catch (err) {
-      setError(message(err, "Gagal menyimpan perubahan."));
+      setError(
+        getErrorMessage(err, "Gagal menyimpan perubahan.")
+      );
+      return;
+    } finally {
       submittingRef.current = false;
       setSaving(false);
     }
+
+    // Keep the existing parent callback responsible for updating
+    // the user list and closing the modal.
+    onSaved(updated);
   }
 
   return (
@@ -253,28 +345,24 @@ export default function EditUserModal({
               <button
                 type="button"
                 className={formStyles.primaryButton}
-                onClick={() => setReloadKey((value) => value + 1)}
+                onClick={() => {
+                  setReloadKey((current) => current + 1);
+                }}
               >
                 Coba Lagi
               </button>
             </div>
           </>
         ) : user ? (
-          <form onSubmit={handleSubmit}>
+          <form
+            key={user.id}
+            onSubmit={handleSubmit}
+            aria-busy={saving}
+          >
             <fieldset
               className={formStyles.formFields}
               disabled={saving}
-              aria-busy={saving}
             >
-              <div className={formStyles.field}>
-                <label htmlFor="edit-role">Role</label>
-                <input
-                  id="edit-role"
-                  value={ROLE_LABELS[user.role]}
-                  readOnly
-                />
-              </div>
-
               <div className={formStyles.grid}>
                 <div className={formStyles.field}>
                   <label htmlFor="edit-name">Nama Lengkap</label>
@@ -284,6 +372,15 @@ export default function EditUserModal({
                     defaultValue={user.name}
                     autoComplete="name"
                     required
+                  />
+                </div>
+
+                <div className={formStyles.field}>
+                  <label htmlFor="edit-role">Role</label>
+                  <input
+                    id="edit-role"
+                    value={ROLE_LABELS[user.role]}
+                    readOnly
                   />
                 </div>
 
@@ -323,7 +420,9 @@ export default function EditUserModal({
                   </div>
                 ) : (
                   <div className={formStyles.field}>
-                    <label htmlFor="edit-nip">NIP (opsional)</label>
+                    <label htmlFor="edit-nip">
+                      NIP (opsional)
+                    </label>
                     <input
                       id="edit-nip"
                       name="nip"
@@ -332,7 +431,43 @@ export default function EditUserModal({
                     />
                   </div>
                 )}
+
+                <div className={formStyles.field}>
+                  <label htmlFor="edit-password">
+                    Password Baru (opsional)
+                  </label>
+                  <input
+                    id="edit-password"
+                    name="password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Password baru"
+                    aria-describedby="edit-password-hint"
+                  />
+                </div>
+
+                <div className={formStyles.field}>
+                  <label htmlFor="edit-confirm-password">
+                    Konfirmasi Password Baru
+                  </label>
+                  <input
+                    id="edit-confirm-password"
+                    name="confirmPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Ulangi password baru"
+                    aria-describedby="edit-password-hint"
+                  />
+                </div>
               </div>
+
+              <p
+                id="edit-password-hint"
+                className={formStyles.hint}
+              >
+                Kosongkan kedua kolom password jika tidak ingin
+                mengganti password.
+              </p>
 
               {user.role === "MURID" && (
                 <div className={formStyles.field}>
@@ -347,11 +482,22 @@ export default function EditUserModal({
                   >
                     <option value="">Belum ditentukan</option>
 
+                    {/* Preserve an existing class even if the
+                        options endpoint does not include it. */}
+                    {user.kelasId &&
+                      !kelasList.some(
+                        (kelas) => kelas.id === user.kelasId
+                      ) && (
+                        <option value={user.kelasId}>
+                          Kelas saat ini (tidak tersedia di daftar)
+                        </option>
+                      )}
+
                     {kelasList.map((kelas) => (
                       <option key={kelas.id} value={kelas.id}>
                         {kelas.nama}
                         {kelas.jurusan
-                          ? ` — ${kelas.jurusan.nama}`
+                          ? ` - ${kelas.jurusan.nama}`
                           : ""}
                       </option>
                     ))}
@@ -360,88 +506,126 @@ export default function EditUserModal({
               )}
 
               {user.role === "GURU" && (
-                <fieldset className={formStyles.classSection}>
-                  <legend>Kelas yang Diajar</legend>
+                <>
+                  <fieldset className={formStyles.classSection}>
+                    <legend>Kelas yang Diajar</legend>
 
-                  <p className={formStyles.hint}>
-                    Pilih kelas yang diajar. Hapus centang untuk
-                    membatalkan penugasan kelas.
-                  </p>
-
-                  {kelasList.length === 0 ? (
                     <p className={formStyles.hint}>
-                      Belum ada kelas.
+                      Pilih kelas yang diajar. Hapus centang untuk
+                      membatalkan penugasan kelas.
                     </p>
-                  ) : (
-                    <div className={formStyles.classList}>
-                      {kelasList.map((kelas) => (
-                        <label
-                          key={kelas.id}
-                          className={formStyles.classOption}
-                        >
-                          <input
-                            type="checkbox"
-                            value={kelas.id}
-                            checked={selectedKelasIds.includes(
-                              kelas.id
-                            )}
-                            onChange={() => toggleKelas(kelas.id)}
-                          />
 
-                          <span>
-                            <strong>{kelas.nama}</strong>
-                            {kelas.jurusan && (
-                              <small>{kelas.jurusan.nama}</small>
-                            )}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
+                    {kelasList.length === 0 ? (
+                      <p className={formStyles.hint}>
+                        Belum ada kelas yang tersedia di daftar.
+                      </p>
+                    ) : (
+                      <div className={formStyles.classList}>
+                        {kelasList.map((kelas) => (
+                          <label
+                            key={kelas.id}
+                            className={formStyles.classOption}
+                          >
+                            <input
+                              type="checkbox"
+                              value={kelas.id}
+                              checked={selectedKelasIds.includes(
+                                kelas.id
+                              )}
+                              onChange={() =>
+                                toggleKelas(kelas.id)
+                              }
+                            />
 
-                  <p
-                    className={formStyles.hint}
-                    aria-live="polite"
-                  >
-                    {selectedKelasIds.length} kelas dipilih.
-                  </p>
-                </fieldset>
+                            <span>
+                              {kelas.nama}
+                              {kelas.jurusan
+                                ? ` - ${kelas.jurusan.nama}`
+                                : ""}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedKelasIds.some(
+                      (id) =>
+                        !kelasList.some((kelas) => kelas.id === id)
+                    ) && (
+                      <p className={formStyles.hint}>
+                        Ada penugasan kelas yang tidak tersedia di
+                        daftar. Penugasan tersebut tetap
+                        dipertahankan saat menyimpan.
+                      </p>
+                    )}
+
+                    <p
+                      className={formStyles.hint}
+                      aria-live="polite"
+                    >
+                      {selectedKelasIds.length} kelas dipilih.
+                    </p>
+                  </fieldset>
+
+                  <fieldset className={formStyles.classSection}>
+                    <legend>Mata Pelajaran yang Diajar</legend>
+
+                    <p className={formStyles.hint}>
+                      Pilih mata pelajaran yang diajar. Hapus
+                      centang untuk membatalkan penugasan mata
+                      pelajaran.
+                    </p>
+
+                    {mapelList.length === 0 ? (
+                      <p className={formStyles.hint}>
+                        Belum ada mata pelajaran yang tersedia di
+                        daftar.
+                      </p>
+                    ) : (
+                      <div className={formStyles.classList}>
+                        {mapelList.map((mapel) => (
+                          <label
+                            key={mapel.id}
+                            className={formStyles.classOption}
+                          >
+                            <input
+                              type="checkbox"
+                              value={mapel.id}
+                              checked={selectedMapelIds.includes(
+                                mapel.id
+                              )}
+                              onChange={() =>
+                                toggleMapel(mapel.id)
+                              }
+                            />
+
+                            <span>{mapel.nama}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedMapelIds.some(
+                      (id) =>
+                        !mapelList.some((mapel) => mapel.id === id)
+                    ) && (
+                      <p className={formStyles.hint}>
+                        Ada penugasan mata pelajaran yang tidak
+                        tersedia di daftar. Penugasan tersebut
+                        tetap dipertahankan saat menyimpan.
+                      </p>
+                    )}
+
+                    <p
+                      className={formStyles.hint}
+                      aria-live="polite"
+                    >
+                      {selectedMapelIds.length} mata pelajaran
+                      dipilih.
+                    </p>
+                  </fieldset>
+                </>
               )}
-
-              <div>
-                <p className={formStyles.hint}>
-                  Kosongkan kedua kolom password jika tidak ingin
-                  mengganti password.
-                </p>
-
-                <div className={formStyles.grid}>
-                  <div className={formStyles.field}>
-                    <label htmlFor="edit-password">
-                      Password Baru (opsional)
-                    </label>
-                    <input
-                      id="edit-password"
-                      name="password"
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="Password baru"
-                    />
-                  </div>
-
-                  <div className={formStyles.field}>
-                    <label htmlFor="edit-confirm-password">
-                      Konfirmasi Password Baru
-                    </label>
-                    <input
-                      id="edit-confirm-password"
-                      name="confirmPassword"
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="Ulangi password baru"
-                    />
-                  </div>
-                </div>
-              </div>
 
               {error && (
                 <p role="alert" className={formStyles.error}>
@@ -454,6 +638,7 @@ export default function EditUserModal({
                   type="button"
                   className={formStyles.secondaryButton}
                   onClick={close}
+                  disabled={saving}
                 >
                   Batal
                 </button>
@@ -463,9 +648,7 @@ export default function EditUserModal({
                   className={formStyles.primaryButton}
                   disabled={saving}
                 >
-                  {saving
-                    ? "Menyimpan..."
-                    : "Simpan Perubahan"}
+                  {saving ? "Menyimpan..." : "Simpan Perubahan"}
                 </button>
               </div>
             </fieldset>

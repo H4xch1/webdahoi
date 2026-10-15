@@ -1,28 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
-import { adminApi } from "@/lib/adminApi";
+import { adminApi, Kelas, Mapel, Role } from "@/lib/adminApi";
 import styles from "./page.module.css";
 
-type Role =
-  | "MURID"
-  | "GURU"
-  | "KEPSEK"
-  | "KURIKULUM"
-  | "ADMIN_UTAMA";
-
-type Kelas = {
-  id: string;
-  nama: string;
-  jurusanId: string;
-  jurusan?: {
-    id: string;
-    nama: string;
-  };
-};
-
-const ROLE_OPTIONS: { value: Role; label: string }[] = [
+const roles: { value: Role; label: string }[] = [
   { value: "MURID", label: "Murid" },
   { value: "GURU", label: "Guru" },
   { value: "KEPSEK", label: "Kepala Sekolah" },
@@ -30,51 +19,61 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "ADMIN_UTAMA", label: "Admin Utama" },
 ];
 
-const REDIRECT_BY_ROLE: Record<Role, string> = {
-  MURID: "/admin/murid",
-  GURU: "/admin/guru",
-  KEPSEK: "/admin/admin",
-  KURIKULUM: "/admin/admin",
-  ADMIN_UTAMA: "/admin/admin",
-};
-
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
-}
-
 export default function RegisterPage() {
   const router = useRouter();
   const submittingRef = useRef(false);
 
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [nik, setNik] = useState("");
+  const [nis, setNis] = useState("");
+  const [nip, setNip] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] =
+    useState("");
   const [role, setRole] = useState<Role>("MURID");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const [kelasId, setKelasId] = useState("");
+  const [selectedKelasIds, setSelectedKelasIds] = useState<string[]>(
+    []
+  );
+  const [selectedMapelIds, setSelectedMapelIds] = useState<string[]>(
+    []
+  );
 
   const [kelasList, setKelasList] = useState<Kelas[]>([]);
-  const [kelasLoading, setKelasLoading] = useState(true);
-  const [kelasError, setKelasError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [mapelList, setMapelList] = useState<Mapel[]>([]);
 
-  const [selectedKelasIds, setSelectedKelasIds] = useState<string[]>([]);
+  const [kelasLoading, setKelasLoading] = useState(true);
+  const [mapelLoading, setMapelLoading] = useState(false);
+
+  const [kelasError, setKelasError] = useState("");
+  const [mapelError, setMapelError] = useState("");
+
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function loadKelas() {
       setKelasLoading(true);
-      setKelasError(null);
+      setKelasError("");
 
       try {
-        const result = await adminApi.listKelas();
+        const data = await adminApi.listKelas();
 
         if (active) {
-          setKelasList(result);
+          setKelasList(data);
         }
       } catch (err) {
         if (active) {
-          setKelasList([]);
           setKelasError(
-            errorMessage(err, "Gagal memuat daftar kelas.")
+            err instanceof Error
+              ? err.message
+              : "Gagal memuat data kelas."
           );
         }
       } finally {
@@ -84,314 +83,496 @@ export default function RegisterPage() {
       }
     }
 
-    void loadKelas();
+    loadKelas();
 
     return () => {
       active = false;
     };
   }, [reloadKey]);
 
-  function changeRole(nextRole: Role) {
+  useEffect(() => {
+    if (role !== "GURU") {
+      setMapelList([]);
+      setSelectedMapelIds([]);
+      return;
+    }
+
+    let active = true;
+
+    async function loadMapel() {
+      setMapelLoading(true);
+      setMapelError("");
+
+      try {
+        const data = await adminApi.listMapel();
+
+        if (active) {
+          setMapelList(data);
+        }
+      } catch (err) {
+        if (active) {
+          setMapelError(
+            err instanceof Error
+              ? err.message
+              : "Gagal memuat data mata pelajaran."
+          );
+        }
+      } finally {
+        if (active) {
+          setMapelLoading(false);
+        }
+      }
+    }
+
+    loadMapel();
+
+    return () => {
+      active = false;
+    };
+  }, [role]);
+
+  function handleRoleChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextRole = event.target.value as Role;
+
     setRole(nextRole);
+    setKelasId("");
     setSelectedKelasIds([]);
-    setError(null);
+    setSelectedMapelIds([]);
+    setError("");
   }
 
   function toggleKelas(id: string) {
     setSelectedKelasIds((current) =>
       current.includes(id)
-        ? current.filter((kelasId) => kelasId !== id)
+        ? current.filter((item) => item !== id)
         : [...current, id]
     );
+  }
+
+  function toggleMapel(id: string) {
+    setSelectedMapelIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id]
+    );
+  }
+
+  function validateForm(): string | null {
+    if (!name.trim()) {
+      return "Nama wajib diisi.";
+    }
+
+    if (!nik.trim()) {
+      return "NIK wajib diisi.";
+    }
+
+    if (role === "MURID" && !nis.trim()) {
+      return "NIS wajib diisi untuk murid.";
+    }
+
+    if (role === "GURU" && !nip.trim()) {
+      return "NIP wajib diisi untuk guru.";
+    }
+
+    if (role === "MURID" && !kelasId) {
+      return "Kelas wajib dipilih untuk murid.";
+    }
+
+    if (role === "GURU" && selectedKelasIds.length === 0) {
+      return "Pilih minimal satu kelas untuk guru.";
+    }
+
+    if (role === "GURU" && selectedMapelIds.length === 0) {
+      return "Pilih minimal satu mata pelajaran untuk guru.";
+    }
+
+    if (!password) {
+      return "Password wajib diisi.";
+    }
+
+    if (password.length < 6) {
+      return "Password minimal 6 karakter.";
+    }
+
+    if (password !== passwordConfirmation) {
+      return "Konfirmasi password tidak cocok.";
+    }
+
+    return null;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (submittingRef.current) return;
-
-    const data = new FormData(event.currentTarget);
-    const nama = String(data.get("nama") ?? "").trim();
-    const email = String(data.get("email") ?? "").trim();
-    const nik = String(data.get("nik") ?? "").trim();
-    const nis = String(data.get("nis") ?? "").trim();
-    const nip = String(data.get("nip") ?? "").trim();
-    const kelasId = String(data.get("kelasId") ?? "").trim();
-
-    // Do not trim passwords.
-    const password = String(data.get("password") ?? "");
-    const confirmPassword = String(data.get("confirmPassword") ?? "");
-
-    setError(null);
-
-    if (!nama) {
-      setError("Nama lengkap wajib diisi.");
+    if (submittingRef.current) {
       return;
     }
 
-    if (!password) {
-      setError("Password wajib diisi.");
+    setError("");
+    setSuccess("");
+
+    const validationError = validateForm();
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
-    if (password !== confirmPassword) {
-      setError("Konfirmasi password tidak cocok.");
+    if (kelasLoading || kelasError) {
+      setError("Data kelas belum siap.");
       return;
     }
 
-    const payload: Record<string, unknown> = {
-      nama,
-      role,
-      password,
-      ...(email ? { email } : {}),
-      ...(nik ? { nik } : {}),
-      ...(role === "MURID"
-        ? {
-            ...(nis ? { nis } : {}),
-            ...(kelasId ? { kelasId } : {}),
-          }
-        : {
-            ...(nip ? { nip } : {}),
-          }),
-      ...(role === "GURU"
-        ? { kelasIds: selectedKelasIds }
-        : {}),
-    };
+    if (role === "GURU" && (mapelLoading || mapelError)) {
+      setError("Data mata pelajaran belum siap.");
+      return;
+    }
 
     submittingRef.current = true;
-    setSaving(true);
 
     try {
-      await adminApi.createUser(payload);
-    } catch (err) {
-      setError(errorMessage(err, "Registrasi gagal. Silakan coba lagi."));
-      submittingRef.current = false;
-      setSaving(false);
-      return;
-    }
+      const payload = {
+        name: name.trim(),
+        email: email.trim() || undefined,
+        nik: nik.trim() || undefined,
+        nis: role === "MURID" ? nis.trim() : undefined,
+        nip: role === "GURU" ? nip.trim() : undefined,
+        password,
+        role,
+        ...(role === "MURID"
+          ? {
+              kelasId,
+            }
+          : {}),
+        ...(role === "GURU"
+          ? {
+              kelasIds: selectedKelasIds,
+              mapelIds: selectedMapelIds,
+            }
+          : {}),
+      };
 
-    // Keep submission locked while navigating after success.
-    router.push(REDIRECT_BY_ROLE[role]);
-    router.refresh();
+      await adminApi.createUser(payload);
+
+      setSuccess("Pengguna berhasil didaftarkan.");
+
+      if (role === "MURID") {
+        router.push("/admin/murid");
+      } else if (role === "GURU") {
+        router.push("/admin/guru");
+      } else {
+        router.push("/admin/admin");
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal mendaftarkan pengguna."
+      );
+
+      submittingRef.current = false;
+    }
   }
 
-  return (
-    <main className={styles.page}>
-      <section className={styles.card}>
-        <header className={styles.header}>
-          <h1>Register Pengguna</h1>
-          <p>
-            Buat akun baru dan tentukan role pengguna.
-          </p>
-        </header>
+  const submitDisabled =
+    submittingRef.current ||
+    kelasLoading ||
+    Boolean(kelasError) ||
+    (role === "GURU" &&
+      (mapelLoading || Boolean(mapelError)));
 
-        <form onSubmit={handleSubmit}>
-          <fieldset className={styles.formFields} disabled={saving}>
+  return (
+    <main className={styles.container}>
+      <section className={styles.card}>
+        <h1 className={styles.title}>Daftar Pengguna</h1>
+
+        <form className={styles.form} onSubmit={handleSubmit}>
+          {error && <p className={styles.error}>{error}</p>}
+          {success && <p className={styles.success}>{success}</p>}
+
+          <div className={styles.grid}>
             <div className={styles.field}>
-              <label htmlFor="role">Role</label>
+              <label className={styles.label} htmlFor="name">
+                Nama Lengkap
+              </label>
+
+              <input
+                id="name"
+                className={styles.input}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Masukkan nama lengkap"
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="role">
+                Role
+              </label>
+
               <select
                 id="role"
-                name="role"
+                className={styles.select}
                 value={role}
-                onChange={(event) =>
-                  changeRole(event.target.value as Role)
-                }
+                onChange={handleRoleChange}
               >
-                {ROLE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                {roles.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
                   </option>
                 ))}
               </select>
             </div>
 
-            <div className={styles.grid}>
-              <div className={styles.field}>
-                <label htmlFor="nama">Nama Lengkap</label>
-                <input
-                  id="nama"
-                  name="nama"
-                  autoComplete="name"
-                  placeholder="Nama lengkap"
-                  required
-                />
-              </div>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="email">
+                Email
+              </label>
 
-              <div className={styles.field}>
-                <label htmlFor="email">Email (opsional)</label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="nama@sekolah.sch.id"
-                />
-              </div>
+              <input
+                id="email"
+                type="email"
+                className={styles.input}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="contoh@email.com"
+              />
+            </div>
 
-              <div className={styles.field}>
-                <label htmlFor="nik">NIK (opsional)</label>
-                <input
-                  id="nik"
-                  name="nik"
-                  inputMode="numeric"
-                  placeholder="Nomor Induk Kependudukan"
-                />
-              </div>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="nik">
+                NIK
+              </label>
 
-              {role === "MURID" ? (
-                <div className={styles.field} key="nis">
-                  <label htmlFor="nis">NIS</label>
-                  <input
-                    id="nis"
-                    name="nis"
-                    inputMode="numeric"
-                    placeholder="Nomor Induk Siswa"
-                    required
-                  />
-                </div>
-              ) : (
-                <div className={styles.field} key="nip">
-                  <label htmlFor="nip">NIP (opsional)</label>
-                  <input
-                    id="nip"
-                    name="nip"
-                    inputMode="numeric"
-                    placeholder="Nomor Induk Pegawai"
-                  />
-                </div>
-              )}
+              <input
+                id="nik"
+                className={styles.input}
+                value={nik}
+                onChange={(event) => setNik(event.target.value)}
+                placeholder="Masukkan NIK"
+              />
             </div>
 
             {role === "MURID" && (
               <div className={styles.field}>
-                <label htmlFor="kelasId">Kelas (opsional)</label>
+                <label className={styles.label} htmlFor="nis">
+                  NIS
+                </label>
+
                 <input
-                  id="kelasId"
-                  name="kelasId"
-                  placeholder="Masukkan ID kelas"
+                  id="nis"
+                  className={styles.input}
+                  value={nis}
+                  onChange={(event) => setNis(event.target.value)}
+                  placeholder="Masukkan NIS"
                 />
               </div>
             )}
 
             {role === "GURU" && (
-              <fieldset className={styles.classSection}>
-                <legend>Kelas yang Diajar</legend>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="nip">
+                  NIP
+                </label>
 
-                <p className={styles.hint}>
-                  Pilih satu atau beberapa kelas. Boleh dikosongkan
-                  jika belum ada penugasan.
-                </p>
+                <input
+                  id="nip"
+                  className={styles.input}
+                  value={nip}
+                  onChange={(event) => setNip(event.target.value)}
+                  placeholder="Masukkan NIP"
+                />
+              </div>
+            )}
+
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="password">
+                Password
+              </label>
+
+              <input
+                id="password"
+                type="password"
+                className={styles.input}
+                value={password}
+                onChange={(event) =>
+                  setPassword(event.target.value)
+                }
+                placeholder="Minimal 6 karakter"
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label
+                className={styles.label}
+                htmlFor="passwordConfirmation"
+              >
+                Konfirmasi Password
+              </label>
+
+              <input
+                id="passwordConfirmation"
+                type="password"
+                className={styles.input}
+                value={passwordConfirmation}
+                onChange={(event) =>
+                  setPasswordConfirmation(event.target.value)
+                }
+                placeholder="Ulangi password"
+              />
+            </div>
+          </div>
+
+          {role === "MURID" && (
+            <div className={styles.classSection}>
+              <label className={styles.label} htmlFor="kelasId">
+                Kelas
+              </label>
+
+              {kelasLoading ? (
+                <p className={styles.hint}>Memuat kelas...</p>
+              ) : kelasError ? (
+                <>
+                  <p className={styles.error}>{kelasError}</p>
+
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() => setReloadKey((key) => key + 1)}
+                  >
+                    Coba Lagi
+                  </button>
+                </>
+              ) : (
+                <select
+                  id="kelasId"
+                  className={styles.select}
+                  value={kelasId}
+                  onChange={(event) => setKelasId(event.target.value)}
+                >
+                  <option value="">Pilih kelas</option>
+
+                  {kelasList.map((kelas) => (
+                    <option key={kelas.id} value={kelas.id}>
+                      {kelas.nama}
+                      {kelas.jurusan?.nama
+                        ? ` - ${kelas.jurusan.nama}`
+                        : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {role === "GURU" && (
+            <>
+              <fieldset className={styles.classSection}>
+                <legend className={styles.label}>
+                  Kelas yang Diajar
+                </legend>
 
                 {kelasLoading ? (
-                  <p role="status" className={styles.hint}>
-                    Memuat daftar kelas...
-                  </p>
+                  <p className={styles.hint}>Memuat kelas...</p>
                 ) : kelasError ? (
-                  <div role="alert" className={styles.error}>
-                    <p>{kelasError}</p>
+                  <>
+                    <p className={styles.error}>{kelasError}</p>
+
                     <button
                       type="button"
                       className={styles.secondaryButton}
-                      onClick={() => setReloadKey((value) => value + 1)}
+                      onClick={() =>
+                        setReloadKey((key) => key + 1)
+                      }
                     >
                       Coba Lagi
                     </button>
-                  </div>
+                  </>
                 ) : kelasList.length === 0 ? (
                   <p className={styles.hint}>
-                    Belum ada kelas. Tambahkan kelas melalui halaman
-                    pengelolaan kelas.
+                    Belum ada data kelas.
                   </p>
                 ) : (
-                  <>
-                    <div className={styles.classList}>
-                      {kelasList.map((kelas) => (
-                        <label
-                          key={kelas.id}
-                          className={styles.classOption}
-                        >
-                          <input
-                            type="checkbox"
-                            name="kelasIds"
-                            value={kelas.id}
-                            checked={selectedKelasIds.includes(kelas.id)}
-                            onChange={() => toggleKelas(kelas.id)}
-                          />
+                  <div className={styles.classList}>
+                    {kelasList.map((kelas) => (
+                      <label
+                        key={kelas.id}
+                        className={styles.classOption}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedKelasIds.includes(kelas.id)}
+                          onChange={() => toggleKelas(kelas.id)}
+                        />
 
-                          <span>
-                            <strong>{kelas.nama}</strong>
-                            {kelas.jurusan && (
-                              <small>{kelas.jurusan.nama}</small>
-                            )}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-
-                    <p className={styles.hint} aria-live="polite">
-                      {selectedKelasIds.length} kelas dipilih.
-                    </p>
-                  </>
+                        <span>
+                          {kelas.nama}
+                          {kelas.jurusan?.nama
+                            ? ` - ${kelas.jurusan.nama}`
+                            : ""}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 )}
               </fieldset>
-            )}
 
-            <div className={styles.grid}>
-              <div className={styles.field}>
-                <label htmlFor="password">Password</label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Password akun"
-                  required
-                />
-              </div>
+              <fieldset className={styles.classSection}>
+                <legend className={styles.label}>
+                  Mata Pelajaran yang Diajar
+                </legend>
 
-              <div className={styles.field}>
-                <label htmlFor="confirmPassword">
-                  Konfirmasi Password
-                </label>
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Ulangi password"
-                  required
-                />
-              </div>
-            </div>
+                {mapelLoading ? (
+                  <p className={styles.hint}>
+                    Memuat mata pelajaran...
+                  </p>
+                ) : mapelError ? (
+                  <p className={styles.error}>{mapelError}</p>
+                ) : mapelList.length === 0 ? (
+                  <p className={styles.hint}>
+                    Belum ada data mata pelajaran.
+                  </p>
+                ) : (
+                  <div className={styles.classList}>
+                    {mapelList.map((mapel) => (
+                      <label
+                        key={mapel.id}
+                        className={styles.classOption}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMapelIds.includes(mapel.id)}
+                          onChange={() => toggleMapel(mapel.id)}
+                        />
 
-            {error && (
-              <p role="alert" className={styles.error}>
-                {error}
-              </p>
-            )}
+                        <span>{mapel.nama}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </fieldset>
+            </>
+          )}
 
-            <div className={styles.actions}>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => router.back()}
-              >
-                Batal
-              </button>
+          <div className={styles.actions}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => router.back()}
+            >
+              Batal
+            </button>
 
-              <button
-                type="submit"
-                className={styles.primaryButton}
-                disabled={
-                  saving ||
-                  (role === "GURU" &&
-                    (kelasLoading || Boolean(kelasError)))
-                }
-              >
-                {saving ? "Menyimpan..." : "Daftarkan Pengguna"}
-              </button>
-            </div>
-          </fieldset>
+            <button
+              type="submit"
+              className={styles.primaryButton}
+              disabled={submitDisabled}
+            >
+              {submittingRef.current
+                ? "Mendaftarkan..."
+                : "Daftarkan Pengguna"}
+            </button>
+          </div>
         </form>
       </section>
     </main>

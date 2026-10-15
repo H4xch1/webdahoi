@@ -1,17 +1,28 @@
-import { Router, type Response } from "express";
+import {
+  Router,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
+
 import { Prisma, Role } from "@prisma/client";
+
 import { prisma } from "../lib/prisma.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { authorize } from "../middleware/authorize.js";
 import { hashPassword } from "../utils/password.js";
-import adminAkademikRoutes from "./admin-akademik.js";
 
+import adminAkademikRouter from "./admin-akademik.js";
 
 const router = Router();
 
+// All routes in this file require ADMIN_UTAMA access.
 router.use(authMiddleware, authorize("ADMIN_UTAMA"));
-router.use("/akademik", adminAkademikRoutes);
 
+// Keep the existing academic-management routes.
+router.use("/akademik", adminAkademikRouter);
+
+// Never select password or other authentication secrets.
 const userSelect = {
   id: true,
   name: true,
@@ -21,280 +32,473 @@ const userSelect = {
   nip: true,
   role: true,
   kelasId: true,
+
   kelasDiajar: {
     select: {
       id: true,
+      nama: true,
     },
   },
-} as const;
 
-class InputError extends Error {
+  guruMapel: {
+    select: {
+      mapel: {
+        select: {
+          id: true,
+          nama: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.UserSelect;
+
+type SelectedUser = Prisma.UserGetPayload<{
+  select: typeof userSelect;
+}>;
+
+/**
+ * Convert Prisma's subject join relation into the shape
+ * expected by adminApi and EditUserModal.
+ *
+ * An existing teacher with no subjects gets mapelDiajar: [].
+ * Missing relation data is not silently treated as empty.
+ */
+function toAdminUser(user: SelectedUser) {
+  const { guruMapel, ...account } = user;
+
+  return {
+    ...account,
+    mapelDiajar: guruMapel.map(({ mapel }) => ({
+      id: mapel.id,
+      nama: mapel.nama,
+    })),
+  };
+}
+
+class HttpError extends Error {
   constructor(
+    public readonly status: number,
     message: string,
-    public readonly status = 400
   ) {
     super(message);
-    this.name = "InputError";
+    this.name = "HttpError";
   }
+}
+
+type AsyncHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => Promise<void>;
+
+/**
+ * Forward async errors for compatibility with Express 4 and 5.
+ */
+function asyncHandler(handler: AsyncHandler) {
+  return (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): void => {
+    void handler(req, res, next).catch(next);
+  };
 }
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function bodyObject(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new InputError("Body permintaan tidak valid.");
+function readBody(value: unknown): Record<string, unknown> {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value)
+  ) {
+    throw new HttpError(400, "Format data tidak valid.");
   }
 
   return value as Record<string, unknown>;
 }
 
-function isRole(value: unknown): value is Role {
-  return (
-    typeof value === "string" &&
-    Object.values(Role).includes(value as Role)
-  );
-}
+function readId(req: Request): string {
+  const id = text(req.params.id);
 
-function handleError(
-  res: Response,
-  error: unknown,
-  fallback: string
-): void {
-  if (error instanceof InputError) {
-    res.status(error.status).json({ message: error.message });
-    return;
+  if (!id) {
+    throw new HttpError(400, "ID tidak valid.");
   }
 
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === "P2002") {
-      res.status(409).json({
-        message:
-          "Data unik sudah digunakan. Periksa email, NIK, NIS, NIP, atau nama kelas.",
-      });
-      return;
-    }
-
-    if (error.code === "P2025") {
-      res.status(404).json({
-        message: "Data atau relasi yang dipilih tidak ditemukan.",
-      });
-      return;
-    }
-
-    if (error.code === "P2003") {
-      res.status(409).json({
-        message:
-          "Relasi data tidak valid atau data masih digunakan oleh data lain.",
-      });
-      return;
-    }
-  }
-
-  console.error(
-    fallback,
-    error instanceof Error ? error.name : "UnknownError"
-  );
-
-  res.status(500).json({ message: fallback });
+  return id;
 }
 
-async function validateUserForm(
+function readRole(value: unknown): Role {
+  switch (value) {
+    case Role.MURID:
+      return Role.MURID;
+
+    case Role.GURU:
+      return Role.GURU;
+
+    case Role.KEPSEK:
+      return Role.KEPSEK;
+
+    case Role.KURIKULUM:
+      return Role.KURIKULUM;
+
+    case Role.ADMIN_UTAMA:
+      return Role.ADMIN_UTAMA;
+
+    default:
+      throw new HttpError(400, "Role tidak valid.");
+  }
+}
+
+/**
+ * Read and deduplicate assignment IDs.
+ *
+ * During teacher editing, required=true prevents an omitted
+ * field from accidentally clearing existing assignments.
+ */
+function readIds(
+  value: unknown,
+  label: string,
+  required: boolean,
+): string[] {
+  if (value === undefined && !required) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new HttpError(
+      400,
+      `${label} harus berupa array dan wajib disertakan.`,
+    );
+  }
+
+  const ids: string[] = [];
+
+  for (const item of value) {
+    if (typeof item !== "string" || !item.trim()) {
+      throw new HttpError(
+        400,
+        `${label} berisi ID yang tidak valid.`,
+      );
+    }
+
+    ids.push(item.trim());
+  }
+
+  return Array.from(new Set(ids));
+}
+
+function readAccountFields(
   body: Record<string, unknown>,
   role: Role,
-  creating: boolean
 ) {
+  // Support the current frontend's "name" and older "nama".
   const name = text(body.name) || text(body.nama);
   const email = text(body.email);
   const nik = text(body.nik);
   const nis = text(body.nis);
   const nip = text(body.nip);
-  const kelasId = text(body.kelasId);
-
-  if (
-    body.password !== undefined &&
-    typeof body.password !== "string"
-  ) {
-    throw new InputError("Password harus berupa teks.");
-  }
-
-  // Do not trim passwords.
-  const password =
-    typeof body.password === "string" ? body.password : "";
 
   if (!name || !email || !nik) {
-    throw new InputError("Nama, email, dan NIK wajib diisi.");
-  }
-
-  if (creating && !password) {
-    throw new InputError("Password wajib diisi.");
-  }
-
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new InputError("Format email tidak valid.");
+    throw new HttpError(
+      400,
+      "Nama, email, dan NIK wajib diisi.",
+    );
   }
 
   if (role === Role.MURID && !nis) {
-    throw new InputError("NIS wajib diisi untuk murid.");
+    throw new HttpError(
+      400,
+      "NIS wajib diisi untuk murid.",
+    );
   }
 
-  if (
-    role === Role.MURID &&
-    body.kelasId !== undefined &&
-    body.kelasId !== null &&
-    typeof body.kelasId !== "string"
-  ) {
-    throw new InputError("ID kelas tidak valid.");
-  }
-
-  let kelasIds: string[] = [];
-
-  if (role === Role.GURU) {
-    // On editing, require the full selection to avoid silently
-    // clearing assignments when the field is accidentally omitted.
-    const suppliedIds =
-      creating && body.kelasIds === undefined
-        ? []
-        : body.kelasIds;
-
-    if (!Array.isArray(suppliedIds)) {
-      throw new InputError(
-        "kelasIds harus berupa daftar ID kelas."
-      );
-    }
-
-    for (const id of suppliedIds) {
-      if (typeof id !== "string" || !id.trim()) {
-        throw new InputError("ID kelas tidak valid.");
-      }
-
-      kelasIds.push(id.trim());
-    }
-
-    kelasIds = [...new Set(kelasIds)];
-
-    if (kelasIds.length > 0) {
-      const count = await prisma.kelas.count({
-        where: { id: { in: kelasIds } },
-      });
-
-      if (count !== kelasIds.length) {
-        throw new InputError(
-          "Satu atau beberapa kelas tidak ditemukan."
-        );
-      }
-    }
-  }
-
-  if (role === Role.MURID && kelasId) {
-    const kelas = await prisma.kelas.findUnique({
-      where: { id: kelasId },
-      select: { id: true },
-    });
-
-    if (!kelas) {
-      throw new InputError("Kelas murid tidak ditemukan.");
-    }
+  if (role === Role.GURU && !nip) {
+    throw new HttpError(
+      400,
+      "NIP wajib diisi untuk guru.",
+    );
   }
 
   return {
     name,
     email,
     nik,
-    nis,
-    nip,
-    kelasId,
-    kelasIds,
-    password,
+    nis: role === Role.MURID ? nis : null,
+    nip: role === Role.MURID ? null : nip || null,
   };
 }
 
-// USERS
+function readPassword(
+  value: unknown,
+  required: boolean,
+): string | undefined {
+  if (value === undefined || value === "") {
+    if (required) {
+      throw new HttpError(
+        400,
+        "Password wajib diisi.",
+      );
+    }
 
-router.get("/users", async (_req, res) => {
-  try {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    throw new HttpError(
+      400,
+      "Password harus berupa teks.",
+    );
+  }
+
+  // Do not trim passwords.
+  if (value.length < 6) {
+    throw new HttpError(
+      400,
+      "Password minimal 6 karakter.",
+    );
+  }
+
+  return value;
+}
+
+async function ensureClassExists(id: string): Promise<void> {
+  const kelas = await prisma.kelas.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+
+  if (!kelas) {
+    throw new HttpError(
+      400,
+      "Kelas yang dipilih tidak ditemukan.",
+    );
+  }
+}
+
+async function ensureTeacherAssignmentsExist(
+  kelasIds: string[],
+  mapelIds: string[],
+): Promise<void> {
+  const [kelasCount, mapelCount] = await Promise.all([
+    prisma.kelas.count({
+      where: {
+        id: { in: kelasIds },
+      },
+    }),
+
+    prisma.mapel.count({
+      where: {
+        id: { in: mapelIds },
+      },
+    }),
+  ]);
+
+  if (kelasCount !== kelasIds.length) {
+    throw new HttpError(
+      400,
+      "Satu atau beberapa kelas yang dipilih tidak ditemukan.",
+    );
+  }
+
+  if (mapelCount !== mapelIds.length) {
+    throw new HttpError(
+      400,
+      "Satu atau beberapa mata pelajaran yang dipilih tidak ditemukan.",
+    );
+  }
+}
+
+// ======================================================
+// USERS: LIST
+// GET /api/admin/users
+// Optional: ?role=GURU&q=nama
+// ======================================================
+
+router.get(
+  "/users",
+  asyncHandler(async (req, res) => {
+    const roleQuery = text(req.query.role);
+    const search = text(req.query.q);
+
+    const where: Prisma.UserWhereInput = {};
+
+    if (roleQuery) {
+      where.role = readRole(roleQuery);
+    }
+
+    if (search) {
+      where.OR = [
+        {
+          name: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          email: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          nik: {
+            contains: search,
+          },
+        },
+        {
+          nis: {
+            contains: search,
+          },
+        },
+        {
+          nip: {
+            contains: search,
+          },
+        },
+      ];
+    }
+
     const users = await prisma.user.findMany({
+      where,
       select: userSelect,
-      orderBy: { name: "asc" },
+      orderBy: {
+        name: "asc",
+      },
     });
 
-    res.json({ users });
-  } catch (error) {
-    handleError(res, error, "Gagal memuat daftar pengguna.");
-  }
-});
+    res.json({
+      users: users.map(toAdminUser),
+    });
+  }),
+);
 
-router.get("/users/:id", async (req, res) => {
-  try {
+// ======================================================
+// USERS: DETAIL
+// GET /api/admin/users/:id
+// ======================================================
+
+router.get(
+  "/users/:id",
+  asyncHandler(async (req, res) => {
+    const id = readId(req);
+
     const user = await prisma.user.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       select: userSelect,
     });
 
     if (!user) {
-      throw new InputError("Pengguna tidak ditemukan.", 404);
+      throw new HttpError(
+        404,
+        "Pengguna tidak ditemukan.",
+      );
     }
 
-    res.json({ user });
-  } catch (error) {
-    handleError(res, error, "Gagal memuat pengguna.");
-  }
-});
+    res.json({
+      user: toAdminUser(user),
+    });
+  }),
+);
 
-router.post("/users", async (req, res) => {
-  try {
-    const body = bodyObject(req.body);
-    const role = body.role;
+// ======================================================
+// USERS: CREATE
+// POST /api/admin/users
+// ======================================================
 
-    if (!isRole(role)) {
-      throw new InputError("Role pengguna tidak valid.");
+router.post(
+  "/users",
+  asyncHandler(async (req, res) => {
+    const body = readBody(req.body);
+    const role = readRole(body.role);
+    const fields = readAccountFields(body, role);
+    const password = readPassword(body.password, true);
+
+    if (password === undefined) {
+      throw new HttpError(
+        400,
+        "Password wajib diisi.",
+      );
     }
 
-    const form = await validateUserForm(body, role, true);
-    const hashed = await hashPassword(form.password);
+    const kelasId =
+      role === Role.MURID
+        ? text(body.kelasId)
+        : "";
+
+    const kelasIds =
+      role === Role.GURU
+        ? readIds(body.kelasIds, "kelasIds", false)
+        : [];
+
+    const mapelIds =
+      role === Role.GURU
+        ? readIds(body.mapelIds, "mapelIds", false)
+        : [];
+
+    if (kelasId) {
+      await ensureClassExists(kelasId);
+    }
+
+    if (role === Role.GURU) {
+      await ensureTeacherAssignmentsExist(
+        kelasIds,
+        mapelIds,
+      );
+    }
+
+    const data: Prisma.UserCreateInput = {
+      ...fields,
+      role,
+      password: await hashPassword(password),
+    };
+
+    if (role === Role.MURID && kelasId) {
+      data.kelas = {
+        connect: { id: kelasId },
+      };
+    }
+
+    if (role === Role.GURU) {
+      data.kelasDiajar = {
+        connect: kelasIds.map((id) => ({ id })),
+      };
+
+      data.guruMapel = {
+        create: mapelIds.map((id) => ({
+          mapel: {
+            connect: { id },
+          },
+        })),
+      };
+    }
 
     const user = await prisma.user.create({
-      data: {
-        name: form.name,
-        email: form.email,
-        nik: form.nik,
-        password: hashed,
-        role,
-        nis: role === Role.MURID ? form.nis : null,
-        nip: role !== Role.MURID ? form.nip || null : null,
-
-        ...(role === Role.MURID && form.kelasId
-          ? {
-              kelas: {
-                connect: { id: form.kelasId },
-              },
-            }
-          : {}),
-
-        ...(role === Role.GURU && form.kelasIds.length > 0
-          ? {
-              kelasDiajar: {
-                connect: form.kelasIds.map((id) => ({ id })),
-              },
-            }
-          : {}),
-      },
+      data,
       select: userSelect,
     });
 
-    res.status(201).json({ user });
-  } catch (error) {
-    handleError(res, error, "Gagal membuat pengguna.");
-  }
-});
+    res.status(201).json({
+      user: toAdminUser(user),
+    });
+  }),
+);
 
-router.put("/users/:id", async (req, res) => {
-  try {
-    const body = bodyObject(req.body);
+// ======================================================
+// USERS: UPDATE
+// PUT /api/admin/users/:id
+// ======================================================
+
+router.put(
+  "/users/:id",
+  asyncHandler(async (req, res) => {
+    const id = readId(req);
+    const body = readBody(req.body);
 
     const existing = await prisma.user.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       select: {
         id: true,
         role: true,
@@ -302,162 +506,356 @@ router.put("/users/:id", async (req, res) => {
     });
 
     if (!existing) {
-      throw new InputError("Pengguna tidak ditemukan.", 404);
+      throw new HttpError(
+        404,
+        "Pengguna tidak ditemukan.",
+      );
     }
 
-    // Editing account information does not change its role.
-    // Enforce this on the backend, not just in the form.
+    // The edit modal does not change account roles.
     if (
       body.role !== undefined &&
       body.role !== existing.role
     ) {
-      throw new InputError(
-        "Perubahan role tidak tersedia melalui form ini."
+      throw new HttpError(
+        400,
+        "Role pengguna tidak dapat diubah melalui form ini.",
       );
     }
 
-    const form = await validateUserForm(
-      body,
-      existing.role,
-      false
-    );
+    const role = existing.role;
+    const fields = readAccountFields(body, role);
+    const password = readPassword(body.password, false);
+
+    const kelasId =
+      role === Role.MURID
+        ? text(body.kelasId)
+        : "";
+
+    // Required on teacher updates, even if intentionally [].
+    const kelasIds =
+      role === Role.GURU
+        ? readIds(body.kelasIds, "kelasIds", true)
+        : [];
+
+    const mapelIds =
+      role === Role.GURU
+        ? readIds(body.mapelIds, "mapelIds", true)
+        : [];
+
+    if (kelasId) {
+      await ensureClassExists(kelasId);
+    }
+
+    if (role === Role.GURU) {
+      await ensureTeacherAssignmentsExist(
+        kelasIds,
+        mapelIds,
+      );
+    }
 
     const data: Prisma.UserUpdateInput = {
-      name: form.name,
-      email: form.email,
-      nik: form.nik,
+      ...fields,
     };
 
-    // Empty/omitted password leaves the current hash unchanged.
-    if (form.password !== "") {
-      data.password = await hashPassword(form.password);
+    if (password !== undefined) {
+      data.password = await hashPassword(password);
     }
 
-    if (existing.role === Role.MURID) {
-      data.nis = form.nis;
-
-      data.kelas = form.kelasId
-        ? { connect: { id: form.kelasId } }
-        : { disconnect: true };
-    } else {
-      data.nip = form.nip || null;
+    if (role === Role.MURID) {
+      data.kelas = kelasId
+        ? {
+            connect: { id: kelasId },
+          }
+        : {
+            disconnect: true,
+          };
     }
 
-    if (existing.role === Role.GURU) {
+    if (role === Role.GURU) {
+      // Replace the teacher's class selection.
       data.kelasDiajar = {
-        set: form.kelasIds.map((id) => ({ id })),
+        set: kelasIds.map((kelasId) => ({
+          id: kelasId,
+        })),
+      };
+
+      // Replace subject join rows atomically within this update.
+      data.guruMapel = {
+        deleteMany: {},
+        create: mapelIds.map((mapelId) => ({
+          mapel: {
+            connect: { id: mapelId },
+          },
+        })),
       };
     }
 
     const user = await prisma.user.update({
-      where: { id: existing.id },
+      where: { id },
       data,
       select: userSelect,
     });
 
-    res.json({ user });
-  } catch (error) {
-    handleError(res, error, "Gagal menyimpan perubahan pengguna.");
-  }
-});
+    res.json({
+      user: toAdminUser(user),
+    });
+  }),
+);
 
-router.delete("/users/:id", async (req, res) => {
-  try {
-    // Prevent admin deletion even if someone calls the API directly.
-    const result = await prisma.user.deleteMany({
-      where: {
-        id: req.params.id,
-        role: { not: Role.ADMIN_UTAMA },
+// ======================================================
+// USERS: DELETE
+// DELETE /api/admin/users/:id
+// ======================================================
+
+router.delete(
+  "/users/:id",
+  asyncHandler(async (req, res) => {
+    const id = readId(req);
+
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        role: true,
       },
     });
 
-    if (result.count === 0) {
-      const existing = await prisma.user.findUnique({
-        where: { id: req.params.id },
-        select: { id: true },
-      });
-
-      if (existing) {
-        throw new InputError(
-          "Penghapusan akun Admin Utama dinonaktifkan.",
-          403
-        );
-      }
-
-      throw new InputError("Pengguna tidak ditemukan.", 404);
+    if (!existing) {
+      throw new HttpError(
+        404,
+        "Pengguna tidak ditemukan.",
+      );
     }
 
-    res.json({ message: "User dihapus" });
-  } catch (error) {
-    handleError(res, error, "Gagal menghapus pengguna.");
-  }
-});
+    if (existing.role === Role.ADMIN_UTAMA) {
+      throw new HttpError(
+        403,
+        "Akun Admin Utama tidak dapat dihapus.",
+      );
+    }
 
-// KELAS
+    await prisma.user.delete({
+      where: { id },
+    });
 
-router.get("/kelas", async (req, res) => {
-  try {
-    const q = text(req.query.q);
+    res.json({
+      message: "Pengguna berhasil dihapus.",
+    });
+  }),
+);
 
+// ======================================================
+// CLASS OPTIONS
+// GET /api/admin/kelas
+// ======================================================
+
+router.get(
+  "/kelas",
+  asyncHandler(async (_req, res) => {
     const kelas = await prisma.kelas.findMany({
-      where: q
-        ? {
-            nama: {
-              contains: q,
-              mode: "insensitive",
-            },
-          }
-        : undefined,
-      include: {
+      select: {
+        id: true,
+        nama: true,
+        jurusanId: true,
+        tingkatId: true,
+
         jurusan: {
           select: {
             id: true,
             nama: true,
           },
         },
+
+        tingkat: {
+          select: {
+            id: true,
+            nama: true,
+          },
+        },
       },
-      orderBy: { nama: "asc" },
+      orderBy: {
+        nama: "asc",
+      },
     });
 
+    // adminApi.listKelas() accepts a raw array.
     res.json(kelas);
-  } catch (error) {
-    handleError(res, error, "Gagal memuat daftar kelas.");
-  }
-});
+  }),
+);
 
-router.post("/kelas", async (req, res) => {
-  try {
-    const nama = text(req.body?.nama);
-    const jurusanId = text(req.body?.jurusanId);
+// ======================================================
+// SUBJECT OPTIONS
+// GET /api/admin/mapel
+// ======================================================
+
+router.get(
+  "/mapel",
+  asyncHandler(async (_req, res) => {
+    const mapel = await prisma.mapel.findMany({
+      select: {
+        id: true,
+        nama: true,
+      },
+      orderBy: {
+        nama: "asc",
+      },
+    });
+
+    // adminApi.listMapel() accepts a raw array.
+    res.json(mapel);
+  }),
+);
+
+// ======================================================
+// LEGACY CLASS CREATION
+// POST /api/admin/kelas
+//
+// Academic CRUD remains available through /akademik.
+// ======================================================
+
+router.post(
+  "/kelas",
+  asyncHandler(async (req, res) => {
+    const body = readBody(req.body);
+
+    const nama = text(body.nama);
+    const jurusanId = text(body.jurusanId);
+    const tingkatId = text(body.tingkatId);
 
     if (!nama || !jurusanId) {
-      throw new InputError(
-        "Nama kelas dan jurusan wajib diisi."
+      throw new HttpError(
+        400,
+        "Nama kelas dan jurusan wajib diisi.",
       );
     }
 
+    const jurusan = await prisma.jurusan.findUnique({
+      where: { id: jurusanId },
+      select: { id: true },
+    });
+
+    if (!jurusan) {
+      throw new HttpError(
+        400,
+        "Jurusan tidak ditemukan.",
+      );
+    }
+
+    if (tingkatId) {
+      const tingkat = await prisma.tingkat.findUnique({
+        where: { id: tingkatId },
+        select: { id: true },
+      });
+
+      if (!tingkat) {
+        throw new HttpError(
+          400,
+          "Tingkat tidak ditemukan.",
+        );
+      }
+    }
+
     const kelas = await prisma.kelas.create({
-      data: { nama, jurusanId },
+      data: {
+        nama,
+        jurusanId,
+        tingkatId: tingkatId || null,
+      },
+      include: {
+        jurusan: true,
+        tingkat: true,
+      },
     });
 
-    res.status(201).json({ kelas });
-  } catch (error) {
-    handleError(res, error, "Gagal membuat kelas.");
-  }
-});
+    res.status(201).json({
+      kelas,
+    });
+  }),
+);
 
-// TUGAS
+// ======================================================
+// TASK DELETION
+// DELETE /api/admin/tugas/:id
+// ======================================================
 
-router.delete("/tugas/:id", async (req, res) => {
-  try {
+router.delete(
+  "/tugas/:id",
+  asyncHandler(async (req, res) => {
+    const id = readId(req);
+
     await prisma.tugas.delete({
-      where: { id: req.params.id },
+      where: { id },
     });
 
-    res.json({ message: "Tugas dihapus" });
-  } catch (error) {
-    handleError(res, error, "Gagal menghapus tugas.");
-  }
-});
+    res.json({
+      message: "Tugas berhasil dihapus.",
+    });
+  }),
+);
+
+// ======================================================
+// ROUTER ERROR HANDLER
+// ======================================================
+
+router.use(
+  (
+    error: unknown,
+    _req: Request,
+    res: Response,
+    next: NextFunction,
+  ): void => {
+    if (res.headersSent) {
+      next(error);
+      return;
+    }
+
+    if (error instanceof HttpError) {
+      res.status(error.status).json({
+        message: error.message,
+      });
+      return;
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      switch (error.code) {
+        case "P2002":
+          res.status(409).json({
+            message:
+              "Data sudah digunakan. Periksa email, NIK, NIS, NIP, atau data unik lainnya.",
+          });
+          return;
+
+        case "P2003":
+          res.status(409).json({
+            message:
+              "Operasi tidak dapat dilakukan karena data masih digunakan atau relasi tidak valid.",
+          });
+          return;
+
+        case "P2025":
+          res.status(404).json({
+            message:
+              "Data yang diminta atau data terkait tidak ditemukan.",
+          });
+          return;
+
+        case "P2034":
+          res.status(409).json({
+            message:
+              "Data sedang diperbarui oleh proses lain. Silakan coba lagi.",
+          });
+          return;
+      }
+    }
+
+    console.error("[admin routes]", error);
+
+    res.status(500).json({
+      message:
+        "Terjadi kesalahan pada server. Silakan coba lagi.",
+    });
+  },
+);
 
 export default router;

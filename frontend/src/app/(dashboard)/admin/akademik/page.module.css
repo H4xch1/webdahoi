@@ -267,6 +267,54 @@
   display: flex;
   gap: 8px;
 }
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: repeat(
+    2,
+    minmax(0, 1fr)
+  );
+  gap: 10px;
+}
+
+.checkboxItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #020617;
+  color: #f1f5f9;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.checkboxItem:hover {
+  border-color: #fbbf24;
+  background: rgb(251 191 36 / 6%);
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #fbbf24;
+  cursor: pointer;
+}
+
+.selectedCount {
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 767px) {
+  .checkboxGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 
 /* Mobile */
 

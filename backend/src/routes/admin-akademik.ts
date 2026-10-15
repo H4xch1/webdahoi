@@ -4,15 +4,23 @@ import {
   type RequestHandler,
 } from "express";
 import { Prisma } from "@prisma/client";
+
 import { prisma } from "../lib/prisma.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { authorize } from "../middleware/authorize.js";
 
 const router = Router();
 
-router.use(authMiddleware, authorize("ADMIN_UTAMA"));
+router.use(
+  authMiddleware,
+  authorize("ADMIN_UTAMA"),
+);
 
-type Entity = "jurusan" | "tingkat" | "kelas";
+type Entity =
+  | "jurusan"
+  | "tingkat"
+  | "kelas"
+  | "mapel";
 
 class HttpError extends Error {
   constructor(
@@ -20,6 +28,7 @@ class HttpError extends Error {
     message: string,
   ) {
     super(message);
+    this.name = "HttpError";
   }
 }
 
@@ -27,38 +36,132 @@ function entityOf(value: unknown): Entity {
   if (
     value === "jurusan" ||
     value === "tingkat" ||
-    value === "kelas"
+    value === "kelas" ||
+    value === "mapel"
   ) {
     return value;
   }
 
-  throw new HttpError(404, "Jenis data tidak ditemukan.");
+  throw new HttpError(
+    404,
+    "Jenis data tidak ditemukan.",
+  );
 }
 
-function requiredText(value: unknown, label: string): string {
-  if (typeof value !== "string" || !value.trim()) {
-    throw new HttpError(400, `${label} wajib diisi.`);
+function requiredText(
+  value: unknown,
+  label: string,
+): string {
+  if (
+    typeof value !== "string" ||
+    value.trim().length === 0
+  ) {
+    throw new HttpError(
+      400,
+      `${label} wajib diisi.`,
+    );
   }
 
   const result = value.trim();
 
   if (result.length > 120) {
-    throw new HttpError(400, `${label} maksimal 120 karakter.`);
+    throw new HttpError(
+      400,
+      `${label} maksimal 120 karakter.`,
+    );
   }
 
   return result;
 }
 
-function bodyOf(value: unknown): Record<string, unknown> {
+function bodyOf(
+  value: unknown,
+): Record<string, unknown> {
   if (
     typeof value !== "object" ||
     value === null ||
     Array.isArray(value)
   ) {
-    throw new HttpError(400, "Data permintaan tidak valid.");
+    throw new HttpError(
+      400,
+      "Data permintaan tidak valid.",
+    );
   }
 
   return value as Record<string, unknown>;
+}
+
+/**
+ * Membaca mapelIds jika field tersebut dikirim.
+ *
+ * undefined:
+ *   Field tidak dikirim. Assignment lama dipertahankan
+ *   saat update.
+ *
+ * []:
+ *   Field dikirim sebagai array kosong. Semua mapel
+ *   akan dilepas dari kelas.
+ */
+function readOptionalIds(
+  body: Record<string, unknown>,
+  key: string,
+): string[] | undefined {
+  if (
+    !Object.prototype.hasOwnProperty.call(
+      body,
+      key,
+    )
+  ) {
+    return undefined;
+  }
+
+  const value = body[key];
+
+  if (!Array.isArray(value)) {
+    throw new HttpError(
+      400,
+      `${key} harus berupa array.`,
+    );
+  }
+
+  const ids = value.map((item) => {
+    if (
+      typeof item !== "string" ||
+      item.trim().length === 0
+    ) {
+      throw new HttpError(
+        400,
+        `${key} berisi ID yang tidak valid.`,
+      );
+    }
+
+    return item.trim();
+  });
+
+  return [...new Set(ids)];
+}
+
+async function validateMapelIds(
+  mapelIds: string[],
+): Promise<void> {
+  if (mapelIds.length === 0) {
+    return;
+  }
+
+  const count = await prisma.mapel.count({
+    where: {
+      id: {
+        in: mapelIds,
+      },
+    },
+  });
+
+  if (count !== mapelIds.length) {
+    throw new HttpError(
+      400,
+      "Satu atau beberapa mata pelajaran tidak ditemukan.",
+    );
+  }
 }
 
 function endpoint(
@@ -68,22 +171,26 @@ function endpoint(
   return async (req, res) => {
     try {
       const result = await work(req);
+
       res.status(status).json(result);
     } catch (error) {
       if (error instanceof HttpError) {
         res.status(error.status).json({
           message: error.message,
         });
+
         return;
       }
 
-      // Log unexpected/database errors once.
       console.error(
         `[Admin Akademik] ${req.method} ${req.originalUrl}`,
         error,
       );
 
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (
+        error instanceof
+        Prisma.PrismaClientKnownRequestError
+      ) {
         switch (error.code) {
           case "P2002": {
             const entity = req.params.entity;
@@ -94,29 +201,33 @@ function endpoint(
                 : entity === "tingkat"
                   ? "Nama tingkat sudah digunakan."
                   : entity === "kelas"
-                    ? "Nama kelas sudah digunakan."
+                    ? "Kombinasi nama kelas dan jurusan sudah digunakan."
                     : "Data sudah digunakan.";
 
             res.status(409).json({
               message,
               code: error.code,
             });
+
             return;
           }
 
           case "P2003":
             res.status(409).json({
               message:
-                "Data masih digunakan atau pilihan jurusan/tingkat sudah tidak tersedia.",
+                "Data masih digunakan atau relasi yang dipilih tidak valid.",
               code: error.code,
             });
+
             return;
 
           case "P2025":
             res.status(404).json({
-              message: "Data tidak ditemukan. Muat ulang halaman.",
+              message:
+                "Data tidak ditemukan. Muat ulang halaman.",
               code: error.code,
             });
+
             return;
 
           case "P2034":
@@ -125,13 +236,16 @@ function endpoint(
                 "Data sedang berubah. Muat ulang lalu coba kembali.",
               code: error.code,
             });
+
             return;
 
           default:
             res.status(500).json({
-              message: "Gagal memproses data akademik.",
+              message:
+                "Gagal memproses data akademik.",
               code: error.code,
             });
+
             return;
         }
       }
@@ -144,103 +258,381 @@ function endpoint(
   };
 }
 
+/*
+|--------------------------------------------------------------------------
+| GET ALL ACADEMIC DATA
+|--------------------------------------------------------------------------
+|
+| GET /api/admin/akademik
+|
+*/
+
 router.get(
   "/",
   endpoint(async () => {
-    const [jurusan, tingkat, kelas] = await prisma.$transaction([
+    const [
+      jurusan,
+      tingkat,
+      kelas,
+      mapel,
+    ] = await prisma.$transaction([
       prisma.jurusan.findMany({
-        orderBy: { nama: "asc" },
+        orderBy: {
+          nama: "asc",
+        },
       }),
+
       prisma.tingkat.findMany({
-        orderBy: { nama: "asc" },
+        orderBy: {
+          nama: "asc",
+        },
       }),
+
       prisma.kelas.findMany({
         include: {
           jurusan: true,
           tingkat: true,
+          mapel: {
+            select: {
+              id: true,
+              nama: true,
+            },
+            orderBy: {
+              nama: "asc",
+            },
+          },
           _count: {
-            select: { siswa: true },
+            select: {
+              siswa: true,
+              mapel: true,
+              materi: true,
+              tugas: true,
+              ujian: true,
+              absensi: true,
+            },
           },
         },
-        orderBy: { nama: "asc" },
+        orderBy: {
+          nama: "asc",
+        },
+      }),
+
+      prisma.mapel.findMany({
+        select: {
+          id: true,
+          nama: true,
+          _count: {
+            select: {
+              kelas: true,
+              guruMapel: true,
+              tugas: true,
+              ujian: true,
+              materi: true,
+              absensi: true,
+            },
+          },
+        },
+        orderBy: {
+          nama: "asc",
+        },
       }),
     ]);
 
-    return { jurusan, tingkat, kelas };
+    return {
+      jurusan,
+      tingkat,
+      kelas,
+      mapel,
+    };
   }),
 );
 
+/*
+|--------------------------------------------------------------------------
+| GET MAPEL
+|--------------------------------------------------------------------------
+|
+| GET /api/admin/akademik/mapel
+|
+*/
+
+router.get(
+  "/mapel",
+  endpoint(async () => {
+    return prisma.mapel.findMany({
+      select: {
+        id: true,
+        nama: true,
+        _count: {
+          select: {
+            kelas: true,
+            guruMapel: true,
+            tugas: true,
+            ujian: true,
+            materi: true,
+            absensi: true,
+          },
+        },
+      },
+      orderBy: {
+        nama: "asc",
+      },
+    });
+  }),
+);
+
+/*
+|--------------------------------------------------------------------------
+| CREATE
+|--------------------------------------------------------------------------
+|
+| POST /api/admin/akademik/:entity
+|
+*/
+
 router.post(
   "/:entity",
-  endpoint(async (req) => {
-    const entity = entityOf(req.params.entity);
-    const body = bodyOf(req.body);
-    const nama = requiredText(body.nama, "Nama");
+  endpoint(
+    async (req) => {
+      const entity = entityOf(req.params.entity);
+      const body = bodyOf(req.body);
 
-    if (entity === "jurusan") {
-      return prisma.jurusan.create({
-        data: { nama },
+      const nama = requiredText(
+        body.nama,
+        entity === "mapel"
+          ? "Nama mata pelajaran"
+          : "Nama",
+      );
+
+      if (entity === "jurusan") {
+        return prisma.jurusan.create({
+          data: {
+            nama,
+          },
+        });
+      }
+
+      if (entity === "tingkat") {
+        return prisma.tingkat.create({
+          data: {
+            nama,
+          },
+        });
+      }
+
+      if (entity === "mapel") {
+        return prisma.mapel.create({
+          data: {
+            nama,
+          },
+          select: {
+            id: true,
+            nama: true,
+          },
+        });
+      }
+
+      const jurusanId = requiredText(
+        body.jurusanId,
+        "Jurusan",
+      );
+
+      const tingkatId = requiredText(
+        body.tingkatId,
+        "Tingkat",
+      );
+
+      const mapelIds = readOptionalIds(
+        body,
+        "mapelIds",
+      );
+
+      if (mapelIds !== undefined) {
+        await validateMapelIds(mapelIds);
+      }
+
+      return prisma.kelas.create({
+        data: {
+          nama,
+          jurusanId,
+          tingkatId,
+
+          ...(mapelIds !== undefined && {
+            mapel: {
+              connect: mapelIds.map((id) => ({
+                id,
+              })),
+            },
+          }),
+        },
+        include: {
+          jurusan: true,
+          tingkat: true,
+          mapel: {
+            select: {
+              id: true,
+              nama: true,
+            },
+            orderBy: {
+              nama: "asc",
+            },
+          },
+        },
       });
-    }
-
-    if (entity === "tingkat") {
-      return prisma.tingkat.create({
-        data: { nama },
-      });
-    }
-
-    const jurusanId = requiredText(body.jurusanId, "Jurusan");
-    const tingkatId = requiredText(body.tingkatId, "Tingkat");
-
-    return prisma.kelas.create({
-      data: { nama, jurusanId, tingkatId },
-    });
-  }, 201),
+    },
+    201,
+  ),
 );
+
+/*
+|--------------------------------------------------------------------------
+| UPDATE
+|--------------------------------------------------------------------------
+|
+| PUT /api/admin/akademik/:entity/:id
+|
+*/
 
 router.put(
   "/:entity/:id",
   endpoint(async (req) => {
     const entity = entityOf(req.params.entity);
-    const id = requiredText(req.params.id, "ID");
+
+    const id = requiredText(
+      req.params.id,
+      "ID",
+    );
+
     const body = bodyOf(req.body);
-    const nama = requiredText(body.nama, "Nama");
+
+    const nama = requiredText(
+      body.nama,
+      entity === "mapel"
+        ? "Nama mata pelajaran"
+        : "Nama",
+    );
 
     if (entity === "jurusan") {
       return prisma.jurusan.update({
-        where: { id },
-        data: { nama },
+        where: {
+          id,
+        },
+        data: {
+          nama,
+        },
       });
     }
 
     if (entity === "tingkat") {
       return prisma.tingkat.update({
-        where: { id },
-        data: { nama },
+        where: {
+          id,
+        },
+        data: {
+          nama,
+        },
       });
     }
 
-    const jurusanId = requiredText(body.jurusanId, "Jurusan");
-    const tingkatId = requiredText(body.tingkatId, "Tingkat");
+    if (entity === "mapel") {
+      return prisma.mapel.update({
+        where: {
+          id,
+        },
+        data: {
+          nama,
+        },
+        select: {
+          id: true,
+          nama: true,
+        },
+      });
+    }
+
+    const jurusanId = requiredText(
+      body.jurusanId,
+      "Jurusan",
+    );
+
+    const tingkatId = requiredText(
+      body.tingkatId,
+      "Tingkat",
+    );
+
+    const mapelIds = readOptionalIds(
+      body,
+      "mapelIds",
+    );
+
+    if (mapelIds !== undefined) {
+      await validateMapelIds(mapelIds);
+    }
 
     return prisma.kelas.update({
-      where: { id },
-      data: { nama, jurusanId, tingkatId },
+      where: {
+        id,
+      },
+      data: {
+        nama,
+        jurusanId,
+        tingkatId,
+
+        // Field tidak dikirim:
+        // assignment mapel lama dipertahankan.
+        //
+        // mapelIds: []:
+        // semua assignment mapel dihapus.
+        ...(mapelIds !== undefined && {
+          mapel: {
+            set: mapelIds.map((mapelId) => ({
+              id: mapelId,
+            })),
+          },
+        }),
+      },
+      include: {
+        jurusan: true,
+        tingkat: true,
+        mapel: {
+          select: {
+            id: true,
+            nama: true,
+          },
+          orderBy: {
+            nama: "asc",
+          },
+        },
+      },
     });
   }),
 );
+
+/*
+|--------------------------------------------------------------------------
+| DELETE
+|--------------------------------------------------------------------------
+|
+| DELETE /api/admin/akademik/:entity/:id
+|
+*/
 
 router.delete(
   "/:entity/:id",
   endpoint(async (req) => {
     const entity = entityOf(req.params.entity);
-    const id = requiredText(req.params.id, "ID");
+
+    const id = requiredText(
+      req.params.id,
+      "ID",
+    );
 
     await prisma.$transaction(
       async (tx) => {
         if (entity === "jurusan") {
           const count = await tx.kelas.count({
-            where: { jurusanId: id },
+            where: {
+              jurusanId: id,
+            },
           });
 
           if (count > 0) {
@@ -250,13 +642,20 @@ router.delete(
             );
           }
 
-          await tx.jurusan.delete({ where: { id } });
+          await tx.jurusan.delete({
+            where: {
+              id,
+            },
+          });
+
           return;
         }
 
         if (entity === "tingkat") {
           const count = await tx.kelas.count({
-            where: { tingkatId: id },
+            where: {
+              tingkatId: id,
+            },
           });
 
           if (count > 0) {
@@ -266,13 +665,68 @@ router.delete(
             );
           }
 
-          await tx.tingkat.delete({ where: { id } });
+          await tx.tingkat.delete({
+            where: {
+              id,
+            },
+          });
+
+          return;
+        }
+
+        if (entity === "mapel") {
+          const mapel = await tx.mapel.findUnique({
+            where: {
+              id,
+            },
+            select: {
+              id: true,
+              _count: {
+                select: {
+                  kelas: true,
+                  guruMapel: true,
+                  tugas: true,
+                  ujian: true,
+                  materi: true,
+                  absensi: true,
+                },
+              },
+            },
+          });
+
+          if (!mapel) {
+            throw new HttpError(
+              404,
+              "Mata pelajaran tidak ditemukan.",
+            );
+          }
+
+          const isUsed = Object.values(
+            mapel._count,
+          ).some((count) => count > 0);
+
+          if (isUsed) {
+            throw new HttpError(
+              409,
+              "Mata pelajaran masih digunakan oleh kelas, guru, materi, tugas, ujian, atau absensi.",
+            );
+          }
+
+          await tx.mapel.delete({
+            where: {
+              id,
+            },
+          });
+
           return;
         }
 
         const kelas = await tx.kelas.findUnique({
-          where: { id },
+          where: {
+            id,
+          },
           select: {
+            id: true,
             _count: {
               select: {
                 siswa: true,
@@ -287,28 +741,38 @@ router.delete(
         });
 
         if (!kelas) {
-          throw new HttpError(404, "Kelas tidak ditemukan.");
+          throw new HttpError(
+            404,
+            "Kelas tidak ditemukan.",
+          );
         }
 
-        const isUsed = Object.values(kelas._count).some(
-          (count) => count > 0,
-        );
+        const isUsed = Object.values(
+          kelas._count,
+        ).some((count) => count > 0);
 
         if (isUsed) {
           throw new HttpError(
             409,
-            "Kelas masih memiliki siswa, mapel, materi, tugas, ujian, atau absensi. Kelas tidak dihapus untuk menjaga data.",
+            "Kelas masih memiliki siswa, mapel, materi, tugas, atau absensi. Kelas tidak dihapus untuk menjaga data.",
           );
         }
 
-        await tx.kelas.delete({ where: { id } });
+        await tx.kelas.delete({
+          where: {
+            id,
+          },
+        });
       },
       {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        isolationLevel:
+          Prisma.TransactionIsolationLevel.Serializable,
       },
     );
 
-    return { message: "Data berhasil dihapus." };
+    return {
+      message: "Data berhasil dihapus.",
+    };
   }),
 );
 

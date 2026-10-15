@@ -10,6 +10,10 @@ const router = Router();
 
 router.use(authMiddleware, authorize("GURU"));
 
+// ---------------------------------------------
+// Error handling
+// ---------------------------------------------
+
 class HttpError extends Error {
   constructor(
     public status: number,
@@ -39,13 +43,17 @@ function route(handler: Handler) {
       }
 
       if (error instanceof HttpError) {
-        res.status(error.status).json({ message: error.message });
+        res.status(error.status).json({
+          message: error.message,
+        });
         return;
       }
 
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === "P2025") {
-          res.status(404).json({ message: "Data tidak ditemukan." });
+          res.status(404).json({
+            message: "Data tidak ditemukan.",
+          });
           return;
         }
 
@@ -65,12 +73,17 @@ function route(handler: Handler) {
       }
 
       console.error("[guru]", error);
+
       res.status(500).json({
         message: "Terjadi kesalahan pada server.",
       });
     });
   };
 }
+
+// ---------------------------------------------
+// Validation
+// ---------------------------------------------
 
 const idSchema = z.string().uuid("ID tidak valid.");
 
@@ -79,11 +92,17 @@ const optionalText = (max: number) =>
 
 const dateTimeSchema = z
   .string()
-  .datetime({ offset: true, message: "Tanggal dan waktu tidak valid." });
+  .datetime({
+    offset: true,
+    message: "Tanggal dan waktu tidak valid.",
+  });
 
 const dateOnlySchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal harus YYYY-MM-DD.")
+  .regex(
+    /^\d{4}-\d{2}-\d{2}$/,
+    "Format tanggal harus YYYY-MM-DD.",
+  )
   .refine((value) => {
     const date = new Date(`${value}T00:00:00.000Z`);
 
@@ -93,7 +112,12 @@ const dateOnlySchema = z
     );
   }, "Tanggal tidak valid.");
 
-const statusSchema = z.enum(["HADIR", "IZIN", "SAKIT", "ALPA"]);
+const statusSchema = z.enum([
+  "HADIR",
+  "IZIN",
+  "SAKIT",
+  "ALPA",
+]);
 
 const resourceUrlSchema = z
   .string()
@@ -104,7 +128,11 @@ const resourceUrlSchema = z
 
     try {
       const url = new URL(value);
-      return url.protocol === "https:" || url.protocol === "http:";
+
+      return (
+        url.protocol === "https:" ||
+        url.protocol === "http:"
+      );
     } catch {
       return false;
     }
@@ -113,7 +141,11 @@ const resourceUrlSchema = z
   .default("");
 
 const baseLearningSchema = z.object({
-  judul: z.string().trim().min(1, "Judul wajib diisi.").max(200),
+  judul: z
+    .string()
+    .trim()
+    .min(1, "Judul wajib diisi.")
+    .max(200),
   deskripsi: optionalText(20000),
   kelasId: idSchema,
   mapelId: idSchema,
@@ -128,11 +160,36 @@ const tugasSchema = baseLearningSchema.extend({
 });
 
 const soalSchema = z.object({
-  pertanyaan: z.string().trim().min(1, "Pertanyaan wajib diisi.").max(10000),
-  opsiA: z.string().trim().min(1, "Opsi A wajib diisi.").max(2000),
-  opsiB: z.string().trim().min(1, "Opsi B wajib diisi.").max(2000),
-  opsiC: z.string().trim().min(1, "Opsi C wajib diisi.").max(2000),
-  opsiD: z.string().trim().min(1, "Opsi D wajib diisi.").max(2000),
+  pertanyaan: z
+    .string()
+    .trim()
+    .min(1, "Pertanyaan wajib diisi.")
+    .max(10000),
+
+  opsiA: z
+    .string()
+    .trim()
+    .min(1, "Opsi A wajib diisi.")
+    .max(2000),
+
+  opsiB: z
+    .string()
+    .trim()
+    .min(1, "Opsi B wajib diisi.")
+    .max(2000),
+
+  opsiC: z
+    .string()
+    .trim()
+    .min(1, "Opsi C wajib diisi.")
+    .max(2000),
+
+  opsiD: z
+    .string()
+    .trim()
+    .min(1, "Opsi D wajib diisi.")
+    .max(2000),
+
   jawabanBenar: z.enum(["A", "B", "C", "D"]),
   bobot: z.number().int().min(1).max(100),
 });
@@ -140,7 +197,10 @@ const soalSchema = z.object({
 const ujianSchema = baseLearningSchema.extend({
   tanggal: dateTimeSchema,
   durasiMenit: z.number().int().min(1).max(600),
-  soal: z.array(soalSchema).min(1, "Tambahkan minimal satu soal.").max(100),
+  soal: z
+    .array(soalSchema)
+    .min(1, "Tambahkan minimal satu soal.")
+    .max(100),
 });
 
 const attendanceQuerySchema = z.object({
@@ -170,6 +230,10 @@ const gradeSchema = z.object({
   updatedAt: dateTimeSchema,
 });
 
+// ---------------------------------------------
+// Authorization and transaction helpers
+// ---------------------------------------------
+
 type DB = Pick<
   Prisma.TransactionClient,
   "kelas" | "guruMapel"
@@ -185,15 +249,26 @@ async function assertTeachingAccess(
     db.kelas.findFirst({
       where: {
         id: kelasId,
-        guru: { some: { id: guruId } },
-        mapel: { some: { id: mapelId } },
+        guru: {
+          some: { id: guruId },
+        },
+        mapel: {
+          some: { id: mapelId },
+        },
       },
-      select: { id: true },
+      select: {
+        id: true,
+      },
     }),
 
     db.guruMapel.findFirst({
-      where: { guruId, mapelId },
-      select: { id: true },
+      where: {
+        guruId,
+        mapelId,
+      },
+      select: {
+        id: true,
+      },
     }),
   ]);
 
@@ -211,22 +286,28 @@ async function serializable<T>(
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       return await prisma.$transaction(operation, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        isolationLevel:
+          Prisma.TransactionIsolationLevel.Serializable,
       });
     } catch (error) {
       const retryable =
         error instanceof Prisma.PrismaClientKnownRequestError &&
         (error.code === "P2034" || error.code === "P2002");
 
-      if (!retryable || attempt === 2) throw error;
+      if (!retryable || attempt === 2) {
+        throw error;
+      }
     }
   }
 
-  throw new HttpError(409, "Silakan coba simpan kembali.");
+  throw new HttpError(
+    409,
+    "Silakan coba simpan kembali.",
+  );
 }
 
 // ---------------------------------------------
-// Class and subject options
+// Class and subject options + diagnostics
 // ---------------------------------------------
 
 router.get(
@@ -235,22 +316,49 @@ router.get(
     const guruId = req.user!.id;
 
     const teacher = await prisma.user.findUnique({
-      where: { id: guruId },
+      where: {
+        id: guruId,
+      },
       select: {
         id: true,
         name: true,
+
+        // Subjects assigned directly to this teacher.
+        guruMapel: {
+          select: {
+            mapel: {
+              select: {
+                id: true,
+                nama: true,
+              },
+            },
+          },
+        },
+
+        // Classes assigned to this teacher.
         kelasDiajar: {
-          orderBy: { nama: "asc" },
+          orderBy: {
+            nama: "asc",
+          },
           select: {
             id: true,
             nama: true,
-            jurusan: { select: { nama: true } },
-            mapel: {
-              where: {
-                guruMapel: { some: { guruId } },
+            jurusan: {
+              select: {
+                nama: true,
               },
-              orderBy: { nama: "asc" },
-              select: { id: true, nama: true },
+            },
+
+            // Read all class subjects first so diagnostics
+            // can distinguish missing links from no overlap.
+            mapel: {
+              orderBy: {
+                nama: "asc",
+              },
+              select: {
+                id: true,
+                nama: true,
+              },
             },
           },
         },
@@ -258,12 +366,159 @@ router.get(
     });
 
     if (!teacher) {
-      throw new HttpError(404, "Akun guru tidak ditemukan.");
+      throw new HttpError(
+        404,
+        "Akun guru tidak ditemukan.",
+      );
     }
 
+    const teacherSubjects = teacher.guruMapel
+      .map((assignment) => assignment.mapel)
+      .sort((a, b) => a.nama.localeCompare(b.nama));
+
+    const teacherSubjectIds = new Set(
+      teacherSubjects.map((subject) => subject.id),
+    );
+
+    // Preserve the existing eligibility rules:
+    // - the teacher is assigned to the class;
+    // - the subject belongs to the class;
+    // - the teacher is assigned to the subject.
+    const kelas = teacher.kelasDiajar.map((item) => ({
+      id: item.id,
+      nama: item.nama,
+      jurusan: item.jurusan,
+      mapel: item.mapel.filter((subject) =>
+        teacherSubjectIds.has(subject.id),
+      ),
+    }));
+
+    // Keep diagnostics in the backend terminal.
+    // Do not expose them in the public API response.
+    if (process.env.NODE_ENV !== "production") {
+      const classDiagnostics = teacher.kelasDiajar.map(
+        (item) => {
+          const classSubjectIds = new Set(
+            item.mapel.map((subject) => subject.id),
+          );
+
+          const availableSubjects = item.mapel.filter(
+            (subject) => teacherSubjectIds.has(subject.id),
+          );
+
+          const reasons: string[] = [];
+
+          if (teacherSubjects.length === 0) {
+            reasons.push(
+              "NO_TEACHER_SUBJECT_ASSIGNMENTS",
+            );
+          }
+
+          if (item.mapel.length === 0) {
+            reasons.push(
+              "NO_CLASS_SUBJECT_LINKS",
+            );
+          }
+
+          if (
+            teacherSubjects.length > 0 &&
+            item.mapel.length > 0 &&
+            availableSubjects.length === 0
+          ) {
+            reasons.push(
+              "NO_MATCHING_TEACHER_AND_CLASS_SUBJECTS",
+            );
+          }
+
+          return {
+            kelasId: item.id,
+            kelasNama: item.nama,
+
+            status:
+              availableSubjects.length > 0
+                ? "OK"
+                : "NO_AVAILABLE_SUBJECTS",
+
+            reasons,
+
+            // All subjects currently attached to this class.
+            classSubjects: item.mapel,
+
+            // Subjects that will appear in the dropdown.
+            availableSubjects,
+
+            // Diagnostic candidates only. Not every subject
+            // taught by this teacher necessarily belongs
+            // to every class assigned to the teacher.
+            teacherSubjectsNotLinkedToClass:
+              teacherSubjects.filter(
+                (subject) =>
+                  !classSubjectIds.has(subject.id),
+              ),
+          };
+        },
+      );
+
+      const warnings: string[] = [];
+
+      if (teacher.kelasDiajar.length === 0) {
+        warnings.push(
+          "NO_TEACHER_CLASS_ASSIGNMENTS",
+        );
+      }
+
+      if (teacherSubjects.length === 0) {
+        warnings.push(
+          "NO_TEACHER_SUBJECT_ASSIGNMENTS",
+        );
+      }
+
+      console.info(
+        "\n[guru/options] Assignment diagnostics",
+      );
+
+      console.dir(
+        {
+          teacher: {
+            id: teacher.id,
+            name: teacher.name,
+          },
+          teacherSubjects,
+          assignedClassCount: teacher.kelasDiajar.length,
+          warnings,
+          classes: classDiagnostics,
+        },
+        {
+          depth: null,
+        },
+      );
+
+      if (warnings.length > 0) {
+        console.warn(
+          "[guru/options] Assignment warnings:",
+          warnings,
+        );
+      }
+
+      for (const item of classDiagnostics) {
+        if (item.status === "NO_AVAILABLE_SUBJECTS") {
+          console.warn(
+            `[guru/options] No available subjects for class "${item.kelasNama}" (${item.kelasId}).`,
+            {
+              reasons: item.reasons,
+            },
+          );
+        }
+      }
+    }
+
+    // Preserve the frontend's existing response structure.
     res.json({
-      teacher: { id: teacher.id, name: teacher.name },
-      kelas: teacher.kelasDiajar,
+      teacher: {
+        id: teacher.id,
+        name: teacher.name,
+      },
+      kelas,
     });
   }),
 );
@@ -279,8 +534,16 @@ router.get(
 
     const scope = {
       createdById: guruId,
-      kelas: { guru: { some: { id: guruId } } },
-      mapel: { guruMapel: { some: { guruId } } },
+      kelas: {
+        guru: {
+          some: { id: guruId },
+        },
+      },
+      mapel: {
+        guruMapel: {
+          some: { guruId },
+        },
+      },
     };
 
     const [
@@ -294,12 +557,24 @@ router.get(
       ujian,
     ] = await Promise.all([
       prisma.kelas.count({
-        where: { guru: { some: { id: guruId } } },
+        where: {
+          guru: {
+            some: { id: guruId },
+          },
+        },
       }),
 
-      prisma.materi.count({ where: scope }),
-      prisma.tugas.count({ where: scope }),
-      prisma.ujian.count({ where: scope }),
+      prisma.materi.count({
+        where: scope,
+      }),
+
+      prisma.tugas.count({
+        where: scope,
+      }),
+
+      prisma.ujian.count({
+        where: scope,
+      }),
 
       prisma.submission.count({
         where: {
@@ -311,46 +586,68 @@ router.get(
       prisma.materi.findMany({
         where: scope,
         take: 20,
-        orderBy: { createdAt: "desc" },
+        orderBy: {
+          createdAt: "desc",
+        },
         select: {
           id: true,
           judul: true,
           deskripsi: true,
           fileUrl: true,
           createdAt: true,
-          kelas: { select: { nama: true } },
-          mapel: { select: { nama: true } },
+          kelas: {
+            select: { nama: true },
+          },
+          mapel: {
+            select: { nama: true },
+          },
         },
       }),
 
       prisma.tugas.findMany({
         where: scope,
         take: 20,
-        orderBy: { createdAt: "desc" },
+        orderBy: {
+          createdAt: "desc",
+        },
         select: {
           id: true,
           judul: true,
           deskripsi: true,
           deadline: true,
-          kelas: { select: { nama: true } },
-          mapel: { select: { nama: true } },
-          _count: { select: { submissions: true } },
+          kelas: {
+            select: { nama: true },
+          },
+          mapel: {
+            select: { nama: true },
+          },
+          _count: {
+            select: { submissions: true },
+          },
         },
       }),
 
       prisma.ujian.findMany({
         where: scope,
         take: 20,
-        orderBy: { createdAt: "desc" },
+        orderBy: {
+          createdAt: "desc",
+        },
         select: {
           id: true,
           judul: true,
           deskripsi: true,
           tanggal: true,
           durasiMenit: true,
-          kelas: { select: { nama: true } },
-          mapel: { select: { nama: true } },
-          _count: { select: { soal: true } },
+          kelas: {
+            select: { nama: true },
+          },
+          mapel: {
+            select: { nama: true },
+          },
+          _count: {
+            select: { soal: true },
+          },
         },
       }),
     ]);
@@ -371,7 +668,7 @@ router.get(
 );
 
 // ---------------------------------------------
-// Create material / assignment / exam
+// Create material
 // ---------------------------------------------
 
 router.post(
@@ -398,9 +695,15 @@ router.post(
       });
     });
 
-    res.status(201).json({ materi });
+    res.status(201).json({
+      materi,
+    });
   }),
 );
+
+// ---------------------------------------------
+// Create assignment
+// ---------------------------------------------
 
 router.post(
   "/tugas",
@@ -409,7 +712,10 @@ router.post(
     const guruId = req.user!.id;
 
     if (new Date(input.deadline).getTime() <= Date.now()) {
-      throw new HttpError(400, "Tenggat harus berada di masa depan.");
+      throw new HttpError(
+        400,
+        "Tenggat harus berada di masa depan.",
+      );
     }
 
     const tugas = await prisma.$transaction(async (tx) => {
@@ -430,9 +736,15 @@ router.post(
       });
     });
 
-    res.status(201).json({ tugas });
+    res.status(201).json({
+      tugas,
+    });
   }),
 );
+
+// ---------------------------------------------
+// Create exam
+// ---------------------------------------------
 
 router.post(
   "/ujian",
@@ -441,7 +753,10 @@ router.post(
     const guruId = req.user!.id;
 
     if (new Date(input.tanggal).getTime() <= Date.now()) {
-      throw new HttpError(400, "Jadwal ujian harus berada di masa depan.");
+      throw new HttpError(
+        400,
+        "Jadwal ujian harus berada di masa depan.",
+      );
     }
 
     const ujian = await prisma.$transaction(async (tx) => {
@@ -461,6 +776,7 @@ router.post(
           tanggal: new Date(input.tanggal),
           durasiMenit: input.durasiMenit,
           createdById: guruId,
+
           soal: {
             create: input.soal.map((soal, index) => ({
               ...soal,
@@ -468,11 +784,16 @@ router.post(
             })),
           },
         },
-        select: { id: true, judul: true },
+        select: {
+          id: true,
+          judul: true,
+        },
       });
     });
 
-    res.status(201).json({ ujian });
+    res.status(201).json({
+      ujian,
+    });
   }),
 );
 
@@ -492,13 +813,24 @@ router.get(
       input.mapelId,
     );
 
-    const tanggal = new Date(`${input.tanggal}T00:00:00.000Z`);
+    const tanggal = new Date(
+      `${input.tanggal}T00:00:00.000Z`,
+    );
 
     const [siswa, records] = await Promise.all([
       prisma.user.findMany({
-        where: { role: "MURID", kelasId: input.kelasId },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true, nis: true },
+        where: {
+          role: "MURID",
+          kelasId: input.kelasId,
+        },
+        orderBy: {
+          name: "asc",
+        },
+        select: {
+          id: true,
+          name: true,
+          nis: true,
+        },
       }),
 
       prisma.absensi.findMany({
@@ -516,7 +848,10 @@ router.get(
     ]);
 
     const byStudent = new Map(
-      records.map((record) => [record.siswaId, record]),
+      records.map((record) => [
+        record.siswaId,
+        record,
+      ]),
     );
 
     res.json({
@@ -538,12 +873,20 @@ router.post(
   route(async (req, res) => {
     const input = attendanceSaveSchema.parse(req.body);
     const guruId = req.user!.id;
-    const tanggal = new Date(`${input.tanggal}T00:00:00.000Z`);
 
-    const ids = input.entries.map((entry) => entry.siswaId);
+    const tanggal = new Date(
+      `${input.tanggal}T00:00:00.000Z`,
+    );
+
+    const ids = input.entries.map(
+      (entry) => entry.siswaId,
+    );
 
     if (new Set(ids).size !== ids.length) {
-      throw new HttpError(400, "Murid tidak boleh dikirim dua kali.");
+      throw new HttpError(
+        400,
+        "Murid tidak boleh dikirim dua kali.",
+      );
     }
 
     await serializable(async (tx) => {
@@ -555,11 +898,18 @@ router.post(
       );
 
       const students = await tx.user.findMany({
-        where: { role: "MURID", kelasId: input.kelasId },
-        select: { id: true },
+        where: {
+          role: "MURID",
+          kelasId: input.kelasId,
+        },
+        select: {
+          id: true,
+        },
       });
 
-      const allowedIds = new Set(students.map((student) => student.id));
+      const allowedIds = new Set(
+        students.map((student) => student.id),
+      );
 
       if (
         students.length !== ids.length ||
@@ -580,6 +930,7 @@ router.post(
               mapelId: input.mapelId,
             },
           },
+
           create: {
             siswaId: entry.siswaId,
             tanggal,
@@ -589,6 +940,7 @@ router.post(
             keterangan: entry.keterangan || null,
             dicatatById: guruId,
           },
+
           update: {
             kelasId: input.kelasId,
             status: entry.status,
@@ -599,12 +951,14 @@ router.post(
       }
     });
 
-    res.json({ message: "Absensi berhasil disimpan." });
+    res.json({
+      message: "Absensi berhasil disimpan.",
+    });
   }),
 );
 
 // ---------------------------------------------
-// Assignment submissions and grading
+// Assignment submissions
 // ---------------------------------------------
 
 router.get(
@@ -614,7 +968,10 @@ router.get(
     const guruId = req.user!.id;
 
     const tugas = await prisma.tugas.findFirst({
-      where: { id, createdById: guruId },
+      where: {
+        id,
+        createdById: guruId,
+      },
       select: {
         id: true,
         judul: true,
@@ -622,13 +979,24 @@ router.get(
         deadline: true,
         kelasId: true,
         mapelId: true,
-        kelas: { select: { nama: true } },
-        mapel: { select: { nama: true } },
+        kelas: {
+          select: {
+            nama: true,
+          },
+        },
+        mapel: {
+          select: {
+            nama: true,
+          },
+        },
       },
     });
 
     if (!tugas) {
-      throw new HttpError(404, "Tugas tidak ditemukan.");
+      throw new HttpError(
+        404,
+        "Tugas tidak ditemukan.",
+      );
     }
 
     await assertTeachingAccess(
@@ -639,8 +1007,12 @@ router.get(
     );
 
     const submissions = await prisma.submission.findMany({
-      where: { tugasId: id },
-      orderBy: { createdAt: "asc" },
+      where: {
+        tugasId: id,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
       select: {
         id: true,
         fileUrl: true,
@@ -651,25 +1023,41 @@ router.get(
         createdAt: true,
         updatedAt: true,
         siswa: {
-          select: { id: true, name: true, nis: true },
+          select: {
+            id: true,
+            name: true,
+            nis: true,
+          },
         },
       },
     });
 
-    res.json({ tugas, submissions });
+    res.json({
+      tugas,
+      submissions,
+    });
   }),
 );
+
+// ---------------------------------------------
+// Grading
+// ---------------------------------------------
 
 router.post(
   "/nilai/:submissionId",
   route(async (req, res) => {
-    const submissionId = idSchema.parse(req.params.submissionId);
+    const submissionId = idSchema.parse(
+      req.params.submissionId,
+    );
+
     const input = gradeSchema.parse(req.body);
     const guruId = req.user!.id;
 
     const updated = await prisma.$transaction(async (tx) => {
       const submission = await tx.submission.findUnique({
-        where: { id: submissionId },
+        where: {
+          id: submissionId,
+        },
         select: {
           id: true,
           tugas: {
@@ -682,8 +1070,14 @@ router.post(
         },
       });
 
-      if (!submission || submission.tugas.createdById !== guruId) {
-        throw new HttpError(404, "Pengumpulan tidak ditemukan.");
+      if (
+        !submission ||
+        submission.tugas.createdById !== guruId
+      ) {
+        throw new HttpError(
+          404,
+          "Pengumpulan tidak ditemukan.",
+        );
       }
 
       await assertTeachingAccess(
@@ -713,7 +1107,9 @@ router.post(
       }
 
       return tx.submission.findUniqueOrThrow({
-        where: { id: submissionId },
+        where: {
+          id: submissionId,
+        },
         select: {
           id: true,
           nilai: true,
@@ -724,7 +1120,9 @@ router.post(
       });
     });
 
-    res.json({ updated });
+    res.json({
+      updated,
+    });
   }),
 );
 

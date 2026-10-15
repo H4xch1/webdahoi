@@ -6,7 +6,11 @@ const BASE =
       ).replace(/\/+$/, "")
     : "/backend-api";
 
-export type AcademicEntity = "jurusan" | "tingkat" | "kelas";
+export type AcademicEntity =
+  | "jurusan"
+  | "tingkat"
+  | "kelas"
+  | "mapel";
 
 export interface AcademicOption {
   id: string;
@@ -18,24 +22,38 @@ export interface AcademicClass extends AcademicOption {
   tingkatId: string | null;
   jurusan: AcademicOption;
   tingkat: AcademicOption | null;
+  mapel: AcademicOption[];
   _count: {
     siswa: number;
+    mapel?: number;
+    materi?: number;
+    tugas?: number;
+    ujian?: number;
+    absensi?: number;
   };
+}
+
+export interface AcademicMapel extends AcademicOption {
+  _count?: Record<string, number>;
 }
 
 export interface AcademicData {
   jurusan: AcademicOption[];
   tingkat: AcademicOption[];
   kelas: AcademicClass[];
+  mapel: AcademicMapel[];
 }
 
 export interface AcademicInput {
   nama: string;
   jurusanId?: string;
   tingkatId?: string;
+  mapelIds?: string[];
 }
 
-function hasMessage(value: unknown): value is { message: string } {
+function hasMessage(
+  value: unknown,
+): value is { message: string } {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -54,14 +72,19 @@ async function request<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${BASE}/admin/akademik${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `${BASE}/admin/akademik${path}`,
+    {
+      ...options,
+      headers,
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
 
-  const body: unknown = await response.json().catch(() => null);
+  const body: unknown = await response
+    .json()
+    .catch(() => null);
 
   if (!response.ok) {
     const fallback =
@@ -71,16 +94,40 @@ async function request<T>(
           ? "Anda tidak memiliki akses."
           : "Permintaan gagal.";
 
-    throw new Error(hasMessage(body) ? body.message : fallback);
+    throw new Error(
+      hasMessage(body) ? body.message : fallback,
+    );
   }
 
   return body as T;
 }
 
 export const adminAkademikApi = {
-  list: () => request<AcademicData>(""),
+  async list(): Promise<AcademicData> {
+    const data = await request<
+      Partial<AcademicData>
+    >("");
 
-  create: (entity: AcademicEntity, input: AcademicInput) =>
+    return {
+      jurusan: Array.isArray(data.jurusan)
+        ? data.jurusan
+        : [],
+      tingkat: Array.isArray(data.tingkat)
+        ? data.tingkat
+        : [],
+      kelas: Array.isArray(data.kelas)
+        ? data.kelas
+        : [],
+      mapel: Array.isArray(data.mapel)
+        ? data.mapel
+        : [],
+    };
+  },
+
+  create: (
+    entity: AcademicEntity,
+    input: AcademicInput,
+  ) =>
     request<AcademicOption>(`/${entity}`, {
       method: "POST",
       body: JSON.stringify(input),
@@ -99,9 +146,14 @@ export const adminAkademikApi = {
       },
     ),
 
-  remove: (entity: AcademicEntity, id: string) =>
+  remove: (
+    entity: AcademicEntity,
+    id: string,
+  ) =>
     request<{ message: string }>(
       `/${entity}/${encodeURIComponent(id)}`,
-      { method: "DELETE" },
+      {
+        method: "DELETE",
+      },
     ),
 };
