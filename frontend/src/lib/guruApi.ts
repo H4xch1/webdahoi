@@ -1,6 +1,10 @@
-const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"
-).replace(/\/$/, "");
+// frontend/src/lib/guruApi.ts
+
+/**
+ * Always call the existing Next.js same-origin proxy.
+ * Backend routing is configured in next.config.ts.
+ */
+const API_URL = "/backend-api";
 
 export type AttendanceStatus = "HADIR" | "IZIN" | "SAKIT" | "ALPA";
 
@@ -140,34 +144,81 @@ function hasMessage(value: unknown): value is { message: string } {
   );
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(options.headers);
 
-  if (options.body) {
+  headers.set("Accept", "application/json");
+
+  if (typeof options.body === "string" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API_URL}/guru${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-    cache: "no-store",
-  });
+  let response: Response;
 
-  const body: unknown = await response.json().catch(() => null);
+  try {
+    response = await fetch(`${API_URL}/guru${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+      cache: "no-store",
+    });
+  } catch (error: unknown) {
+    if (options.signal?.aborted || isAbortError(error)) {
+      throw error;
+    }
+
+    throw new Error(
+      "Tidak dapat terhubung ke server. Periksa koneksi internet dan konfigurasi backend.",
+    );
+  }
+
+  const text = await response.text();
+
+  let body: unknown = null;
+  let validJson = false;
+
+  if (text.trim()) {
+    try {
+      body = JSON.parse(text) as unknown;
+      validJson = true;
+    } catch {
+      validJson = false;
+    }
+  }
 
   if (!response.ok) {
-    const fallback =
-      response.status === 401
-        ? "Sesi berakhir. Silakan masuk kembali."
-        : response.status === 403
-          ? "Anda tidak memiliki akses ke data ini."
-          : "Permintaan gagal. Silakan coba lagi.";
+    let fallback = `Permintaan gagal (${response.status}). Silakan coba lagi.`;
+
+    if (response.status === 401) {
+      fallback = "Sesi berakhir. Silakan masuk kembali.";
+    } else if (response.status === 403) {
+      fallback = "Anda tidak memiliki akses ke data ini.";
+    } else if (response.status === 404) {
+      fallback =
+        "Endpoint Guru tidak ditemukan. Periksa URL backend dan deployment API.";
+    } else if (response.status >= 500) {
+      fallback =
+        "Server mengalami gangguan. Periksa deployment backend dan log server.";
+    }
 
     throw new Error(hasMessage(body) ? body.message : fallback);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  if (!validJson) {
+    throw new Error(
+      "Respons server bukan JSON. Periksa konfigurasi proxy /backend-api dan URL backend.",
+    );
   }
 
   return body as T;
