@@ -1,0 +1,19 @@
+The animated background and still poster were newly rendered procedurally for this request.
+No third-party game art, Live2D character model, audio, logo, or paid generated media is bundled.
+The new art assets are offered under CC0-1.0 to the extent applicable rights exist and can be waived.
+New source code may be used, modified, and redistributed with your project.
+The optional video configuration does not grant rights to any video you later supply.
+
+Asset: academy-loop.webp
+Canvas: 960x540
+Frames: 80
+Frame duration: 80ms
+Full loop: 6400ms
+Loop count: infinite
+Animation: water/reflection refraction, cloud drift, light shimmer, flower sway, fireflies.
+Poster: academy-poster.webp
+
+Technical reference:
+https://developer.mozilla.org/en-US/docs/Web/API/Document/startViewTransition
+https://developer.mozilla.org/en-US/docs/Web/API/ViewTransition/skipTransition
+https://developer.mozilla.org/en-US/docs/Web/API/Web_Animations_API/Using_the_Web_Animations_API

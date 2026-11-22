@@ -1,56 +1,44 @@
 {
-  "package": "Kurikulum read-only Guru activity revision",
-  "prerequisite": "Previous Kurikulum Guru/Siswa management package installed locally",
-  "files": [
-    {
-      "path": "backend/src/routes/kurikulum-monitoring.ts",
-      "action": "ADD"
-    },
-    {
-      "path": "frontend/src/lib/kurikulumMonitoringApi.ts",
-      "action": "ADD"
-    },
-    {
-      "path": "frontend/src/app/(dashboard)/kurikulum/monitoring/page.tsx",
-      "action": "ADD"
-    },
-    {
-      "path": "frontend/src/app/(dashboard)/kurikulum/monitoring/_components/MonitoringDashboard.tsx",
-      "action": "ADD"
-    },
-    {
-      "path": "frontend/src/app/(dashboard)/kurikulum/monitoring/[jenis]/[id]/page.tsx",
-      "action": "ADD"
-    },
-    {
-      "path": "frontend/src/app/(dashboard)/kurikulum/monitoring/_components/ActivityDetail.tsx",
-      "action": "ADD"
-    },
-    {
-      "path": "frontend/src/app/(dashboard)/kurikulum/monitoring/monitoring.module.css",
-      "action": "ADD"
-    },
-    {
-      "path": "tools/apply-kurikulum-monitoring.mjs",
-      "action": "ADD"
-    },
-    {
-      "path": "tools/test-kurikulum-monitoring.mjs",
-      "action": "ADD"
-    },
-    {
-      "path": "README-MONITORING.md",
-      "action": "ADD"
-    },
-    {
-      "path": "VERIFICATION.txt",
-      "action": "ADD"
-    }
+  "package": "Webdahoi Guru motion add-on",
+  "keepsExistingCinematicTheme": true,
+  "newDependencies": [],
+  "databaseChanges": false,
+  "motion": {
+    "native": "document.startViewTransition",
+    "fallback": "Web Animations API entrance",
+    "durationMs": 560,
+    "maxSnapshotWaitMs": 220
+  },
+  "background": {
+    "format": "animated WebP",
+    "frames": 80,
+    "durationMs": 6400,
+    "dimensions": [
+      960,
+      540
+    ],
+    "bytes": 674250,
+    "isLive2D": false
+  },
+  "installerModifiesWithBackups": [
+    "frontend/src/app/(dashboard)/layout.tsx",
+    "frontend/src/components/layout/Sidebar.tsx",
+    "standard default next/link imports in Guru-folder TSX files"
   ],
-  "installerModifiesWithBackup": [
-    "backend/src/routes/kurikulum.ts",
-    "frontend/src/components/layout/Sidebar.tsx"
-  ],
-  "databaseMigrations": [],
-  "dependenciesChanged": false
+  "newFiles": [
+    "frontend/src/components/guru-motion/config.ts",
+    "frontend/src/components/guru-motion/GuruMotionLink.tsx",
+    "frontend/src/components/guru-motion/GuruMotionBoundary.tsx",
+    "frontend/src/components/guru-motion/guru-motion.css",
+    "tools/install-guru-motion.mjs",
+    "frontend/public/themes/guru-motion/academy-poster.webp",
+    "frontend/public/themes/guru-motion/academy-loop.webp",
+    "preview-guru-motion/index.html",
+    "preview-guru-motion/demo.css",
+    "preview-guru-motion/demo.js",
+    "tools/preview-guru-motion.mjs",
+    "README-GURU-MOTION.md",
+    "MOTION-ASSETS.txt",
+    "VERIFICATION.txt"
+  ]
 }

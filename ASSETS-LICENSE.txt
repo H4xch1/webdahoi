@@ -1,0 +1,6 @@
+The SVG and PNG artwork in public/themes/guru-cinematic was newly authored procedurally for this request.
+No third-party game artwork, Live2D models, fonts, or downloaded asset packs are included.
+To the extent applicable rights exist and can be waived, these new decorative art assets are offered under CC0-1.0.
+The source code may be used, modified, and redistributed with your project.
+External assets mentioned in ASSET-GUIDE.md retain their own licenses and are NOT included.
+This notice does not grant rights to Wuthering Waves, Live2D sample characters, or any other third-party material.
