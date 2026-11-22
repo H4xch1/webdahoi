@@ -2,6 +2,7 @@ import { Router } from "express";
 import authRoutes from "./auth.js";
 import adminRoutes from "./admin.js";
 import muridRoutes from "./murid.js";
+import muridLearningRoutes from "./murid-learning.js";
 import guruRoutes from "./guru.js";
 import kepsekRoutes from "./kepsek.js";
 import kurikulumRoutes from "./kurikulum.js";
@@ -10,11 +11,10 @@ import ujianRoutes from "./ujian.js";
 import materiRoutes from "./materi.js";
 import absenRoutes from "./absen.js";
 
-
 const router = Router();
-
 router.use("/auth", authRoutes);
 router.use("/admin", adminRoutes);
+router.use("/murid", muridLearningRoutes);
 router.use("/murid", muridRoutes);
 router.use("/guru", guruRoutes);
 router.use("/kepsek", kepsekRoutes);
@@ -23,5 +23,4 @@ router.use("/tugas", tugasRoutes);
 router.use("/ujian", ujianRoutes);
 router.use("/materi", materiRoutes);
 router.use("/absen", absenRoutes);
-
 export default router;

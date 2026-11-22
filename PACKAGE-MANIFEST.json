@@ -1,0 +1,56 @@
+{
+  "package": "Kurikulum read-only Guru activity revision",
+  "prerequisite": "Previous Kurikulum Guru/Siswa management package installed locally",
+  "files": [
+    {
+      "path": "backend/src/routes/kurikulum-monitoring.ts",
+      "action": "ADD"
+    },
+    {
+      "path": "frontend/src/lib/kurikulumMonitoringApi.ts",
+      "action": "ADD"
+    },
+    {
+      "path": "frontend/src/app/(dashboard)/kurikulum/monitoring/page.tsx",
+      "action": "ADD"
+    },
+    {
+      "path": "frontend/src/app/(dashboard)/kurikulum/monitoring/_components/MonitoringDashboard.tsx",
+      "action": "ADD"
+    },
+    {
+      "path": "frontend/src/app/(dashboard)/kurikulum/monitoring/[jenis]/[id]/page.tsx",
+      "action": "ADD"
+    },
+    {
+      "path": "frontend/src/app/(dashboard)/kurikulum/monitoring/_components/ActivityDetail.tsx",
+      "action": "ADD"
+    },
+    {
+      "path": "frontend/src/app/(dashboard)/kurikulum/monitoring/monitoring.module.css",
+      "action": "ADD"
+    },
+    {
+      "path": "tools/apply-kurikulum-monitoring.mjs",
+      "action": "ADD"
+    },
+    {
+      "path": "tools/test-kurikulum-monitoring.mjs",
+      "action": "ADD"
+    },
+    {
+      "path": "README-MONITORING.md",
+      "action": "ADD"
+    },
+    {
+      "path": "VERIFICATION.txt",
+      "action": "ADD"
+    }
+  ],
+  "installerModifiesWithBackup": [
+    "backend/src/routes/kurikulum.ts",
+    "frontend/src/components/layout/Sidebar.tsx"
+  ],
+  "databaseMigrations": [],
+  "dependenciesChanged": false
+}

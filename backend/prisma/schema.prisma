@@ -33,6 +33,7 @@ model User {
   name      String
   nik       String   @unique // murid
   nis       String?  @unique
+  nisn String?
   nip       String?  @unique // guru / staff
   role      Role
   avatarUrl String?

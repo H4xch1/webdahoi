@@ -1,8 +1,2 @@
-export default function PendingPage() {
-  return (
-    <section>
-      <h1>Halaman sedang disiapkan</h1>
-      <p>Fitur ini belum tersedia.</p>
-    </section>
-  );
-}
+import { redirect } from "next/navigation";
+export default function LegacyKurikulumPage() { redirect("/kurikulum"); }

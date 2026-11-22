@@ -1,0 +1,290 @@
+import { Router, type Response } from "express";
+import { Prisma } from "@prisma/client";
+import { z } from "zod";
+import { prisma } from "../lib/prisma.js";
+import { authMiddleware, type AuthRequest } from "../middleware/auth.js";
+import { hashPassword } from "../utils/password.js";
+
+const router = Router();
+router.use(authMiddleware);
+router.use((_req, res, next) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  next();
+});
+
+class HttpError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
+type DB = Prisma.TransactionClient;
+async function assertActor(db: Pick<DB, "user">, id: string) {
+  const actor = await db.user.findUnique({ where: { id }, select: { role: true } });
+  if (actor?.role !== "KURIKULUM") {
+    throw new HttpError(403, "Hanya akun Kurikulum aktif yang dapat mengakses fitur ini.");
+  }
+}
+function route(handler: (req: AuthRequest, res: Response) => Promise<unknown>) {
+  return (req: AuthRequest, res: Response) => {
+    void (async () => {
+      if (!req.user?.id) throw new HttpError(401, "Silakan masuk kembali.");
+      await assertActor(prisma, req.user.id);
+      return handler(req, res);
+    })().catch((error: unknown) => {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: error.issues[0]?.message ?? "Data tidak valid." });
+        return;
+      }
+      if (error instanceof HttpError) {
+        res.status(error.status).json({ message: error.message });
+        return;
+      }
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        const messages: Record<string, string> = {
+          P2002: "Data unik sudah digunakan. Periksa email, NIK, NIS, NISN, atau NIP.",
+          P2003: "Data masih digunakan atau relasi sudah berubah. Muat ulang sebelum mencoba lagi.",
+          P2025: "Data berubah atau tidak ditemukan. Muat ulang sebelum mencoba lagi.",
+          P2034: "Terjadi perubahan bersamaan. Muat ulang sebelum mencoba lagi.",
+        };
+        if (messages[error.code]) {
+          res.status(409).json({ message: messages[error.code] });
+          return;
+        }
+      }
+      console.error("[kurikulum]", error);
+      res.status(500).json({ message: "Terjadi kesalahan pada server." });
+    });
+  };
+}
+
+const idSchema = z.string().uuid("ID tidak valid.");
+const roleSchema = z.enum(["GURU", "MURID"]);
+const idsSchema = z.array(idSchema).max(500).refine(
+  (ids) => new Set(ids).size === ids.length, "Pilihan tidak boleh berulang.",
+);
+const optionalIdentifier = z.string().trim().max(40).regex(/^\d*$/, "Nomor identitas hanya boleh berisi angka.");
+const passwordSchema = z.string().max(128).refine(
+  (value) => value === "" || (value.length >= 8 && Buffer.byteLength(value, "utf8") <= 72),
+  "Password minimal 8 karakter dan maksimal 72 byte.",
+);
+const accountSchema = z.object({
+  name: z.string().trim().min(1, "Nama wajib diisi.").max(150),
+  email: z.string().trim().email("Email tidak valid.").max(254).transform((s) => s.toLowerCase()),
+  nik: z.string().trim().min(1, "NIK wajib diisi.").max(40).regex(/^\d+$/, "NIK hanya boleh berisi angka."),
+  nis: optionalIdentifier,
+  nisn: z.string().trim().refine((v) => v === "" || /^\d{10}$/.test(v), "NISN harus kosong atau tepat 10 digit."),
+  nip: optionalIdentifier,
+  avatarUrl: z.string().trim().max(2048).refine((v) => {
+    if (!v) return true;
+    try { return new URL(v).protocol === "https:"; } catch { return false; }
+  }, "Tautan avatar harus menggunakan HTTPS."),
+  password: passwordSchema,
+  kelasId: idSchema.nullable(),
+  kelasIds: idsSchema,
+  mapelIds: idsSchema,
+}).strict();
+const createSchema = accountSchema.extend({ role: roleSchema }).strict();
+const updateSchema = accountSchema.extend({ updatedAt: z.string().datetime({ offset: true }) }).strict();
+const deleteSchema = z.object({
+  updatedAt: z.string().datetime({ offset: true }),
+  confirmation: z.literal("DELETE"),
+}).strict();
+const listSchema = z.object({
+  role: roleSchema,
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(12),
+  q: z.string().trim().max(200).default(""),
+  kelasId: idSchema.optional(),
+});
+
+// User.nisn is required: keep the user's existing add_user_nisn migration.
+const userSelect = {
+  id: true, name: true, email: true, nik: true, nis: true, nisn: true, nip: true,
+  role: true, kelasId: true, avatarUrl: true, createdAt: true, updatedAt: true,
+  kelas: { select: { id: true, nama: true, jurusan: { select: { nama: true } } } },
+  kelasDiajar: { orderBy: { nama: "asc" as const }, select: { id: true, nama: true } },
+  guruMapel: { select: { mapel: { select: { id: true, nama: true } } } },
+} satisfies Prisma.UserSelect;
+type SelectedUser = Prisma.UserGetPayload<{ select: typeof userSelect }>;
+function publicUser(user: SelectedUser) {
+  const { guruMapel, ...rest } = user;
+  return { ...rest, mapelDiajar: guruMapel.map((item) => item.mapel) };
+}
+function isManaged(role: string): role is "GURU" | "MURID" {
+  return role === "GURU" || role === "MURID";
+}
+async function target(db: Pick<DB, "user">, id: string) {
+  const user = await db.user.findUnique({ where: { id }, select: userSelect });
+  // Never reveal or edit a staff/admin account through this router.
+  if (!user || !isManaged(user.role)) throw new HttpError(404, "Akun Guru/Siswa tidak ditemukan.");
+  return user;
+}
+type AccountInput = z.infer<typeof accountSchema>;
+async function validateAssignments(db: DB, input: AccountInput, role: "GURU" | "MURID") {
+  if (role === "MURID") {
+    if (!input.nis) throw new HttpError(400, "NIS siswa wajib diisi.");
+    if (input.nip || input.kelasIds.length || input.mapelIds.length) {
+      throw new HttpError(400, "Siswa tidak dapat memiliki penugasan guru atau NIP.");
+    }
+    if (input.kelasId && !(await db.kelas.findUnique({ where: { id: input.kelasId }, select: { id: true } }))) {
+      throw new HttpError(400, "Kelas siswa tidak ditemukan.");
+    }
+  } else {
+    if (!input.nip) throw new HttpError(400, "NIP guru wajib diisi.");
+    if (input.nis || input.nisn || input.kelasId) {
+      throw new HttpError(400, "Guru tidak dapat memiliki NIS, NISN, atau kelas siswa.");
+    }
+    const [kelasCount, mapelCount] = await Promise.all([
+      db.kelas.count({ where: { id: { in: input.kelasIds } } }),
+      db.mapel.count({ where: { id: { in: input.mapelIds } } }),
+    ]);
+    if (kelasCount !== input.kelasIds.length || mapelCount !== input.mapelIds.length) {
+      throw new HttpError(400, "Pilihan kelas atau mata pelajaran tidak ditemukan. Muat ulang form.");
+    }
+  }
+}
+function fields(input: AccountInput) {
+  return {
+    name: input.name, email: input.email, nik: input.nik,
+    nis: input.nis || null, nisn: input.nisn || null, nip: input.nip || null,
+    avatarUrl: input.avatarUrl || null,
+  };
+}
+async function ensureEmail(db: DB, email: string, excludeId?: string) {
+  const other = await db.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" }, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    select: { id: true },
+  });
+  if (other) throw new HttpError(409, "Email sudah digunakan oleh akun lain.");
+}
+const transactionOptions = {
+  isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+  maxWait: 5000, timeout: 15000,
+};
+
+router.get("/overview", route(async (_req, res) => {
+  const [guru, siswa, kelas, mapel, tanpaKelas] = await Promise.all([
+    prisma.user.count({ where: { role: "GURU" } }),
+    prisma.user.count({ where: { role: "MURID" } }),
+    prisma.kelas.count(), prisma.mapel.count(),
+    prisma.user.count({ where: { role: "MURID", kelasId: null } }),
+  ]);
+  res.json({ counts: { guru, siswa, kelas, mapel, tanpaKelas } });
+}));
+router.get("/options", route(async (_req, res) => {
+  const [kelas, mapel] = await Promise.all([
+    prisma.kelas.findMany({
+      orderBy: { nama: "asc" },
+      select: {
+        id: true, nama: true,
+        jurusan: { select: { nama: true } },
+        tingkat: { select: { nama: true } },
+        mapel: { select: { id: true, nama: true } },
+      },
+    }),
+    prisma.mapel.findMany({ orderBy: { nama: "asc" }, select: { id: true, nama: true } }),
+  ]);
+  res.json({ kelas, mapel });
+}));
+router.get("/users", route(async (req, res) => {
+  const q = listSchema.parse(req.query);
+  const where: Prisma.UserWhereInput = {
+    role: q.role,
+    ...(q.kelasId ? q.role === "MURID" ? { kelasId: q.kelasId }
+      : { kelasDiajar: { some: { id: q.kelasId } } } : {}),
+    ...(q.q ? { OR: [
+      { name: { contains: q.q, mode: "insensitive" } },
+      { email: { contains: q.q, mode: "insensitive" } },
+      { nik: { contains: q.q } }, { nis: { contains: q.q } },
+      { nisn: { contains: q.q } }, { nip: { contains: q.q } },
+    ] } : {}),
+  };
+  const [total, users] = await prisma.$transaction([
+    prisma.user.count({ where }),
+    prisma.user.findMany({ where, skip: (q.page - 1) * q.limit, take: q.limit,
+      orderBy: [{ name: "asc" }, { id: "asc" }], select: userSelect }),
+  ]);
+  res.json({ users: users.map(publicUser), pagination: {
+    page: q.page, limit: q.limit, total, totalPages: Math.max(1, Math.ceil(total / q.limit)),
+  } });
+}));
+router.get("/users/:id", route(async (req, res) => {
+  res.json({ user: publicUser(await target(prisma, idSchema.parse(req.params.id))) });
+}));
+router.post("/users", route(async (req, res) => {
+  const input = createSchema.parse(req.body);
+  if (!input.password) throw new HttpError(400, "Password akun baru wajib diisi (minimal 8 karakter).");
+  const password = await hashPassword(input.password);
+  const user = await prisma.$transaction(async (tx) => {
+    await assertActor(tx, req.user!.id);
+    await validateAssignments(tx, input, input.role);
+    await ensureEmail(tx, input.email);
+    return tx.user.create({
+      data: {
+        ...fields(input), password, role: input.role,
+        ...(input.role === "MURID" && input.kelasId ? { kelas: { connect: { id: input.kelasId } } } : {}),
+        ...(input.role === "GURU" ? {
+          kelasDiajar: { connect: input.kelasIds.map((id) => ({ id })) },
+          guruMapel: { create: input.mapelIds.map((id) => ({ mapel: { connect: { id } } })) },
+        } : {}),
+      }, select: userSelect,
+    });
+  }, transactionOptions);
+  res.status(201).json({ user: publicUser(user), message: "Akun berhasil dibuat." });
+}));
+router.put("/users/:id", route(async (req, res) => {
+  const id = idSchema.parse(req.params.id);
+  const input = updateSchema.parse(req.body);
+  const password = input.password ? await hashPassword(input.password) : undefined;
+  const user = await prisma.$transaction(async (tx) => {
+    await assertActor(tx, req.user!.id);
+    const existing = await target(tx, id);
+    if (existing.updatedAt.getTime() !== new Date(input.updatedAt).getTime()) {
+      throw new HttpError(409, "Data berubah sejak form dibuka. Muat ulang sebelum menyimpan.");
+    }
+    if (!isManaged(existing.role)) throw new HttpError(404, "Akun tidak ditemukan.");
+    await validateAssignments(tx, input, existing.role);
+    await ensureEmail(tx, input.email, id);
+    const data: Prisma.UserUpdateInput = { ...fields(input), ...(password ? { password } : {}) };
+    if (existing.role === "MURID") {
+      data.kelas = input.kelasId ? { connect: { id: input.kelasId } } : { disconnect: true };
+    } else {
+      data.kelasDiajar = { set: input.kelasIds.map((id) => ({ id })) };
+      data.guruMapel = {
+        deleteMany: {}, create: input.mapelIds.map((id) => ({ mapel: { connect: { id } } })),
+      };
+    }
+    return tx.user.update({
+      where: { id, role: existing.role, updatedAt: new Date(input.updatedAt) },
+      data, select: userSelect,
+    });
+  }, transactionOptions);
+  res.json({ user: publicUser(user), message: "Perubahan berhasil disimpan." });
+}));
+router.delete("/users/:id", route(async (req, res) => {
+  const id = idSchema.parse(req.params.id);
+  const input = deleteSchema.parse(req.body);
+  await prisma.$transaction(async (tx) => {
+    await assertActor(tx, req.user!.id);
+    const existing = await target(tx, id);
+    if (existing.updatedAt.getTime() !== new Date(input.updatedAt).getTime()) {
+      throw new HttpError(409, "Data akun berubah. Muat ulang daftar sebelum menghapus.");
+    }
+    const linked = await tx.user.findUnique({
+      where: { id }, select: { _count: { select: {
+        tugas: true, ujian: true, materi: true, nilai: true, submissions: true,
+        jawabanUjian: true, absensi: true, absensiDicatat: true,
+      } } },
+    });
+    const historicalCount = Object.values(linked?._count ?? {}).reduce((sum, count) => sum + count, 0);
+    if (historicalCount > 0) {
+      throw new HttpError(409, "Akun memiliki riwayat materi, tugas, ujian, nilai, pengumpulan, atau absensi. Penghapusan diblokir agar riwayat tidak hilang. Hubungi Admin untuk kebijakan arsip.");
+    }
+    // Class membership/teacher assignments are not academic history.
+    await tx.guruMapel.deleteMany({ where: { guruId: id } });
+    await tx.user.update({ where: { id }, data: { kelasDiajar: { set: [] } } });
+    await tx.user.delete({ where: { id } });
+  }, transactionOptions);
+  res.json({ message: "Akun berhasil dihapus." });
+}));
+
+// Do not retain legacy /materi, /tugas, /penilaian endpoints: this role manages users only.
+export default router;

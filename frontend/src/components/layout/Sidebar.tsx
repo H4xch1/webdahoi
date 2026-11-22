@@ -1,8 +1,18 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+
+import {
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+
+import {
+  usePathname,
+  useRouter,
+} from "next/navigation";
+
 import {
   Home,
   ClipboardList,
@@ -10,13 +20,15 @@ import {
   FileText,
   LogOut,
   Users,
+  UserRound,
   BarChart3,
   ShieldCheck,
   School,
+  GraduationCap,
 } from "lucide-react";
 
 import { api } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
+
 import styles from "./Sidebar.module.css";
 
 interface NavItem {
@@ -26,28 +38,57 @@ interface NavItem {
   exact?: boolean;
 }
 
+interface SidebarProps {
+  role: string;
+}
+
 const NAV_BY_ROLE: Record<string, NavItem[]> = {
   murid: [
     {
       label: "Home",
       href: "/murid",
-      icon: <Home size={18} />,
+      icon: <Home size={18} aria-hidden="true" />,
       exact: true,
     },
     {
       label: "Tugas",
       href: "/murid/tugas",
-      icon: <ClipboardList size={18} />,
+      icon: (
+        <ClipboardList
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Materi",
       href: "/murid/materi",
-      icon: <BookOpen size={18} />,
+      icon: (
+        <BookOpen
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Ujian",
       href: "/murid/ujian",
-      icon: <FileText size={18} />,
+      icon: (
+        <FileText
+          size={18}
+          aria-hidden="true"
+        />
+      ),
+    },
+    {
+      label: "Profile",
+      href: "/murid/profile",
+      icon: (
+        <UserRound
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
   ],
 
@@ -55,28 +96,48 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     {
       label: "Home",
       href: "/guru",
-      icon: <Home size={18} />,
+      icon: <Home size={18} aria-hidden="true" />,
       exact: true,
     },
     {
       label: "Tugas",
       href: "/guru/tugas",
-      icon: <ClipboardList size={18} />,
+      icon: (
+        <ClipboardList
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Materi",
       href: "/guru/materi",
-      icon: <BookOpen size={18} />,
+      icon: (
+        <BookOpen
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Ujian",
       href: "/guru/ujian",
-      icon: <FileText size={18} />,
+      icon: (
+        <FileText
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Absen",
       href: "/guru/absen",
-      icon: <Users size={18} />,
+      icon: (
+        <Users
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
   ],
 
@@ -84,175 +145,307 @@ const NAV_BY_ROLE: Record<string, NavItem[]> = {
     {
       label: "Home",
       href: "/kepsek",
-      icon: <Home size={18} />,
+      icon: <Home size={18} aria-hidden="true" />,
       exact: true,
     },
     {
       label: "Summary",
       href: "/kepsek/summary",
-      icon: <BarChart3 size={18} />,
+      icon: (
+        <BarChart3
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Guru",
       href: "/kepsek/guru",
-      icon: <Users size={18} />,
+      icon: (
+        <Users
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
   ],
 
   kurikulum: [
-    {
-      label: "Home",
-      href: "/kurikulum",
-      icon: <Home size={18} />,
-      exact: true,
-    },
-    {
-      label: "Guru",
-      href: "/kurikulum/guru",
-      icon: <Users size={18} />,
-    },
-    {
-      label: "Materi",
-      href: "/kurikulum/materi",
-      icon: <BookOpen size={18} />,
-    },
-    {
-      label: "Tugas",
-      href: "/kurikulum/tugas",
-      icon: <ClipboardList size={18} />,
-    },
-    {
-      label: "Penilaian",
-      href: "/kurikulum/penilaian",
-      icon: <FileText size={18} />,
-    },
+    { label: "Home", href: "/kurikulum", icon: <Home size={18} />, exact: true },
+    { label: "Guru", href: "/kurikulum/guru", icon: <Users size={18} /> },
+    { label: "Siswa", href: "/kurikulum/siswa", icon: <Users size={18} /> },
+    { label: "Aktivitas Guru", href: "/kurikulum/monitoring", icon: <Users size={18} /> },
   ],
 
   admin: [
     {
       label: "Home",
       href: "/admin",
-      icon: <Home size={18} />,
+      icon: <Home size={18} aria-hidden="true" />,
       exact: true,
     },
     {
       label: "Manage Jurusan / Kelas",
       href: "/admin/akademik",
-      icon: <School size={18} />,
+      icon: (
+        <School
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Manage Murid",
       href: "/admin/murid",
-      icon: <Users size={18} />,
+      icon: (
+        <Users
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Manage Guru",
       href: "/admin/guru",
-      icon: <Users size={18} />,
+      icon: (
+        <Users
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Manage Kepsek",
       href: "/admin/kepsek",
-      icon: <Users size={18} />,
+      icon: (
+        <Users
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Manage Kurikulum",
       href: "/admin/kurikulum",
-      icon: <Users size={18} />,
+      icon: (
+        <Users
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
     {
       label: "Manage Admin",
       href: "/admin/admin",
-      icon: <ShieldCheck size={18} />,
+      icon: (
+        <ShieldCheck
+          size={18}
+          aria-hidden="true"
+        />
+      ),
     },
   ],
-
 };
 
-export default function Sidebar({ role }: { role: string }) {
+const ROLE_LABELS: Record<string, string> = {
+  murid: "Ruang Murid",
+  guru: "Ruang Guru",
+  kepsek: "Ruang Kepala Sekolah",
+  kurikulum: "Ruang Kurikulum",
+  admin: "Ruang Administrator",
+};
+
+export default function Sidebar({
+  role,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const logoutLock = useRef(false);
 
-  const normalizedRole = role.trim().toLowerCase();
+  const [isLoggingOut, setIsLoggingOut] =
+    useState(false);
+
+  const [logoutError, setLogoutError] =
+    useState("");
+
+  const normalizedRole = role
+    .trim()
+    .toLowerCase();
+
   const roleKey =
-    normalizedRole === "admin_utama" ? "admin" : normalizedRole;
+    normalizedRole === "admin_utama"
+      ? "admin"
+      : normalizedRole;
 
   const items = NAV_BY_ROLE[roleKey] ?? [];
 
+  const roleLabel =
+    ROLE_LABELS[roleKey] ?? "Dashboard";
+
+  const homeHref =
+    items.find((item) => item.exact)?.href ?? "/";
+
   async function handleLogout() {
-    if (isLoggingOut) return;
+    if (logoutLock.current) {
+      return;
+    }
+
+    logoutLock.current = true;
 
     setIsLoggingOut(true);
-    setLogoutError(null);
+    setLogoutError("");
 
     try {
       await api.post("/auth/logout");
+
       router.replace("/login");
       router.refresh();
     } catch {
-      setLogoutError("Gagal logout. Silakan coba lagi.");
+      setLogoutError(
+        "Gagal logout. Silakan coba lagi.",
+      );
     } finally {
+      logoutLock.current = false;
       setIsLoggingOut(false);
     }
   }
 
   return (
-    <aside className={styles.sidebar}>
-      <div className={styles.logoWrap}>
-        <div className={styles.logo} aria-label="Logo">
-          ⏳
-        </div>
-      </div>
+    <aside
+      className={styles.sidebar}
+      aria-label={roleLabel}
+    >
+      <Link
+        href={homeHref}
+        className={styles.brand}
+        aria-label={`Webdahoi — ${roleLabel}`}
+      >
+        <span className={styles.logo}>
+          <GraduationCap
+            size={25}
+            aria-hidden="true"
+          />
+        </span>
 
-      <nav className={styles.nav} aria-label="Navigasi utama">
+        <span className={styles.brandText}>
+          <span className={styles.brandName}>
+            Webdahoi
+          </span>
+
+          <span className={styles.brandSubtitle}>
+            Learning Portal
+          </span>
+        </span>
+      </Link>
+
+      <section
+        className={styles.roleCard}
+        aria-label="Peran akun"
+      >
+        <span
+          className={styles.roleIndicator}
+          aria-hidden="true"
+        />
+
+        <div>
+          <p className={styles.roleCaption}>
+            Area pembelajaran
+          </p>
+
+          <p className={styles.roleName}>
+            {roleLabel}
+          </p>
+        </div>
+      </section>
+
+      <p className={styles.menuLabel}>
+        Menu utama
+      </p>
+
+      <nav
+        className={styles.nav}
+        aria-label={`Navigasi ${roleLabel}`}
+      >
         {items.map((item) => {
           const active = item.exact
             ? pathname === item.href
             : pathname === item.href ||
-              pathname.startsWith(`${item.href}/`);
+              pathname.startsWith(
+                `${item.href}/`,
+              );
+
+          const className = [
+            styles.navItem,
+            active
+              ? styles.navItemActive
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                styles.navItem,
-                active && styles.navItemActive
-              )}
+              aria-current={
+                active ? "page" : undefined
+              }
+              className={className}
             >
-              {item.icon}
-              <span>{item.label}</span>
+              <span className={styles.navIcon}>
+                {item.icon}
+              </span>
+
+              <span className={styles.navLabel}>
+                {item.label}
+              </span>
+
+              {active && (
+                <span
+                  className={
+                    styles.activeIndicator
+                  }
+                  aria-hidden="true"
+                />
+              )}
             </Link>
           );
         })}
       </nav>
 
-      {logoutError && (
-        <p
-          role="alert"
-          style={{
-            color: "#fca5a5",
-            fontSize: "0.8rem",
-            padding: "0 1rem",
-          }}
-        >
-          {logoutError}
-        </p>
-      )}
+      <footer className={styles.footer}>
+        {logoutError && (
+          <p
+            role="alert"
+            className={styles.logoutError}
+          >
+            {logoutError}
+          </p>
+        )}
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        disabled={isLoggingOut}
-        className={styles.logoutBtn}
-      >
-        <LogOut size={16} />
-        <span>{isLoggingOut ? "Logging out..." : "Log Out"}</span>
-      </button>
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className={styles.logoutBtn}
+        >
+          <LogOut
+            size={17}
+            aria-hidden="true"
+          />
+
+          <span>
+            {isLoggingOut
+              ? "Logging out..."
+              : "Log Out"}
+          </span>
+        </button>
+
+        <p className={styles.footerText}>
+          Webdahoi Learning Portal
+        </p>
+      </footer>
     </aside>
   );
 }

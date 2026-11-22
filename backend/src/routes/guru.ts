@@ -1,9 +1,16 @@
-import { Router, type Response, type NextFunction } from "express";
+import {
+  Router,
+  type Response,
+  type NextFunction,
+} from "express";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { prisma } from "../lib/prisma.js";
-import { authMiddleware, type AuthRequest } from "../middleware/auth.js";
+import {
+  authMiddleware,
+  type AuthRequest,
+} from "../middleware/auth.js";
 import { authorize } from "../middleware/authorize.js";
 
 const router = Router();
@@ -20,6 +27,7 @@ class HttpError extends Error {
     message: string,
   ) {
     super(message);
+    this.name = "HttpError";
   }
 }
 
@@ -59,14 +67,16 @@ function route(handler: Handler) {
 
         if (error.code === "P2002" || error.code === "P2034") {
           res.status(409).json({
-            message: "Data berubah saat disimpan. Muat ulang dan coba lagi.",
+            message:
+              "Data berubah saat disimpan. Muat ulang dan coba lagi.",
           });
           return;
         }
 
         if (error.code === "P2003") {
           res.status(409).json({
-            message: "Data terkait telah berubah. Muat ulang halaman.",
+            message:
+              "Data terkait telah berubah. Muat ulang halaman.",
           });
           return;
         }
@@ -90,12 +100,10 @@ const idSchema = z.string().uuid("ID tidak valid.");
 const optionalText = (max: number) =>
   z.string().trim().max(max).optional().default("");
 
-const dateTimeSchema = z
-  .string()
-  .datetime({
-    offset: true,
-    message: "Tanggal dan waktu tidak valid.",
-  });
+const dateTimeSchema = z.string().datetime({
+  offset: true,
+  message: "Tanggal dan waktu tidak valid.",
+});
 
 const dateOnlySchema = z
   .string()
@@ -146,6 +154,7 @@ const baseLearningSchema = z.object({
     .trim()
     .min(1, "Judul wajib diisi.")
     .max(200),
+
   deskripsi: optionalText(20000),
   kelasId: idSchema,
   mapelId: idSchema,
@@ -153,6 +162,32 @@ const baseLearningSchema = z.object({
 
 const materiSchema = baseLearningSchema.extend({
   fileUrl: resourceUrlSchema,
+});
+
+const materiListSchema = z.object({
+  page: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100000)
+    .default(1),
+
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(12),
+
+  search: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .default(""),
+
+  kelasId: idSchema.optional(),
+  mapelId: idSchema.optional(),
 });
 
 const tugasSchema = baseLearningSchema.extend({
@@ -197,6 +232,7 @@ const soalSchema = z.object({
 const ujianSchema = baseLearningSchema.extend({
   tanggal: dateTimeSchema,
   durasiMenit: z.number().int().min(1).max(600),
+
   soal: z
     .array(soalSchema)
     .min(1, "Tambahkan minimal satu soal.")
@@ -225,8 +261,6 @@ const attendanceSaveSchema = attendanceQuerySchema.extend({
 const gradeSchema = z.object({
   nilai: z.number().min(0).max(100),
   feedback: optionalText(5000),
-
-  // Prevent grading an older submission version.
   updatedAt: dateTimeSchema,
 });
 
@@ -249,13 +283,16 @@ async function assertTeachingAccess(
     db.kelas.findFirst({
       where: {
         id: kelasId,
+
         guru: {
           some: { id: guruId },
         },
+
         mapel: {
           some: { id: mapelId },
         },
       },
+
       select: {
         id: true,
       },
@@ -266,6 +303,7 @@ async function assertTeachingAccess(
         guruId,
         mapelId,
       },
+
       select: {
         id: true,
       },
@@ -289,7 +327,7 @@ async function serializable<T>(
         isolationLevel:
           Prisma.TransactionIsolationLevel.Serializable,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       const retryable =
         error instanceof Prisma.PrismaClientKnownRequestError &&
         (error.code === "P2034" || error.code === "P2002");
@@ -306,8 +344,27 @@ async function serializable<T>(
   );
 }
 
+function learningScope(guruId: string) {
+  return {
+    createdById: guruId,
+
+    kelas: {
+      guru: {
+        some: { id: guruId },
+      },
+    },
+
+    mapel: {
+      guruMapel: {
+        some: { guruId },
+      },
+    },
+  };
+}
+
 // ---------------------------------------------
-// Class and subject options + diagnostics
+// Class and subject options
+// GET /api/guru/options
 // ---------------------------------------------
 
 router.get(
@@ -319,11 +376,11 @@ router.get(
       where: {
         id: guruId,
       },
+
       select: {
         id: true,
         name: true,
 
-        // Subjects assigned directly to this teacher.
         guruMapel: {
           select: {
             mapel: {
@@ -335,26 +392,26 @@ router.get(
           },
         },
 
-        // Classes assigned to this teacher.
         kelasDiajar: {
           orderBy: {
             nama: "asc",
           },
+
           select: {
             id: true,
             nama: true,
+
             jurusan: {
               select: {
                 nama: true,
               },
             },
 
-            // Read all class subjects first so diagnostics
-            // can distinguish missing links from no overlap.
             mapel: {
               orderBy: {
                 nama: "asc",
               },
+
               select: {
                 id: true,
                 nama: true,
@@ -380,21 +437,16 @@ router.get(
       teacherSubjects.map((subject) => subject.id),
     );
 
-    // Preserve the existing eligibility rules:
-    // - the teacher is assigned to the class;
-    // - the subject belongs to the class;
-    // - the teacher is assigned to the subject.
     const kelas = teacher.kelasDiajar.map((item) => ({
       id: item.id,
       nama: item.nama,
       jurusan: item.jurusan,
+
       mapel: item.mapel.filter((subject) =>
         teacherSubjectIds.has(subject.id),
       ),
     }));
 
-    // Keep diagnostics in the backend terminal.
-    // Do not expose them in the public API response.
     if (process.env.NODE_ENV !== "production") {
       const classDiagnostics = teacher.kelasDiajar.map(
         (item) => {
@@ -415,9 +467,7 @@ router.get(
           }
 
           if (item.mapel.length === 0) {
-            reasons.push(
-              "NO_CLASS_SUBJECT_LINKS",
-            );
+            reasons.push("NO_CLASS_SUBJECT_LINKS");
           }
 
           if (
@@ -440,16 +490,9 @@ router.get(
                 : "NO_AVAILABLE_SUBJECTS",
 
             reasons,
-
-            // All subjects currently attached to this class.
             classSubjects: item.mapel,
-
-            // Subjects that will appear in the dropdown.
             availableSubjects,
 
-            // Diagnostic candidates only. Not every subject
-            // taught by this teacher necessarily belongs
-            // to every class assigned to the teacher.
             teacherSubjectsNotLinkedToClass:
               teacherSubjects.filter(
                 (subject) =>
@@ -462,15 +505,11 @@ router.get(
       const warnings: string[] = [];
 
       if (teacher.kelasDiajar.length === 0) {
-        warnings.push(
-          "NO_TEACHER_CLASS_ASSIGNMENTS",
-        );
+        warnings.push("NO_TEACHER_CLASS_ASSIGNMENTS");
       }
 
       if (teacherSubjects.length === 0) {
-        warnings.push(
-          "NO_TEACHER_SUBJECT_ASSIGNMENTS",
-        );
+        warnings.push("NO_TEACHER_SUBJECT_ASSIGNMENTS");
       }
 
       console.info(
@@ -483,6 +522,7 @@ router.get(
             id: teacher.id,
             name: teacher.name,
           },
+
           teacherSubjects,
           assignedClassCount: teacher.kelasDiajar.length,
           warnings,
@@ -512,7 +552,6 @@ router.get(
       }
     }
 
-    // Preserve the frontend's existing response structure.
     res.json({
       teacher: {
         id: teacher.id,
@@ -525,26 +564,14 @@ router.get(
 
 // ---------------------------------------------
 // Dashboard
+// GET /api/guru/overview
 // ---------------------------------------------
 
 router.get(
   "/overview",
   route(async (req, res) => {
     const guruId = req.user!.id;
-
-    const scope = {
-      createdById: guruId,
-      kelas: {
-        guru: {
-          some: { id: guruId },
-        },
-      },
-      mapel: {
-        guruMapel: {
-          some: { guruId },
-        },
-      },
-    };
+    const scope = learningScope(guruId);
 
     const [
       kelasCount,
@@ -586,18 +613,22 @@ router.get(
       prisma.materi.findMany({
         where: scope,
         take: 20,
+
         orderBy: {
           createdAt: "desc",
         },
+
         select: {
           id: true,
           judul: true,
           deskripsi: true,
           fileUrl: true,
           createdAt: true,
+
           kelas: {
             select: { nama: true },
           },
+
           mapel: {
             select: { nama: true },
           },
@@ -607,22 +638,29 @@ router.get(
       prisma.tugas.findMany({
         where: scope,
         take: 20,
+
         orderBy: {
           createdAt: "desc",
         },
+
         select: {
           id: true,
           judul: true,
           deskripsi: true,
           deadline: true,
+
           kelas: {
             select: { nama: true },
           },
+
           mapel: {
             select: { nama: true },
           },
+
           _count: {
-            select: { submissions: true },
+            select: {
+              submissions: true,
+            },
           },
         },
       }),
@@ -630,23 +668,30 @@ router.get(
       prisma.ujian.findMany({
         where: scope,
         take: 20,
+
         orderBy: {
           createdAt: "desc",
         },
+
         select: {
           id: true,
           judul: true,
           deskripsi: true,
           tanggal: true,
           durasiMenit: true,
+
           kelas: {
             select: { nama: true },
           },
+
           mapel: {
             select: { nama: true },
           },
+
           _count: {
-            select: { soal: true },
+            select: {
+              soal: true,
+            },
           },
         },
       }),
@@ -660,6 +705,7 @@ router.get(
         ujian: ujianCount,
         belumDinilai,
       },
+
       materi,
       tugas,
       ujian,
@@ -668,7 +714,124 @@ router.get(
 );
 
 // ---------------------------------------------
+// List materials
+// GET /api/guru/materi
+// ---------------------------------------------
+
+router.get(
+  "/materi",
+  route(async (req, res) => {
+    const query = materiListSchema.parse(req.query);
+    const guruId = req.user!.id;
+
+    const where: Prisma.MateriWhereInput = {
+      ...learningScope(guruId),
+
+      ...(query.kelasId
+        ? { kelasId: query.kelasId }
+        : {}),
+
+      ...(query.mapelId
+        ? { mapelId: query.mapelId }
+        : {}),
+
+      ...(query.search
+        ? {
+            OR: [
+              {
+                judul: {
+                  contains: query.search,
+                  mode: "insensitive",
+                },
+              },
+
+              {
+                deskripsi: {
+                  contains: query.search,
+                  mode: "insensitive",
+                },
+              },
+
+              {
+                kelas: {
+                  nama: {
+                    contains: query.search,
+                    mode: "insensitive",
+                  },
+                },
+              },
+
+              {
+                mapel: {
+                  nama: {
+                    contains: query.search,
+                    mode: "insensitive",
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, materi] = await prisma.$transaction([
+      prisma.materi.count({
+        where,
+      }),
+
+      prisma.materi.findMany({
+        where,
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+
+        orderBy: [
+          { createdAt: "desc" },
+          { id: "desc" },
+        ],
+
+        select: {
+          id: true,
+          judul: true,
+          deskripsi: true,
+          fileUrl: true,
+          createdAt: true,
+
+          kelas: {
+            select: {
+              id: true,
+              nama: true,
+            },
+          },
+
+          mapel: {
+            select: {
+              id: true,
+              nama: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    res.json({
+      materi,
+
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages: Math.max(
+          1,
+          Math.ceil(total / query.limit),
+        ),
+      },
+    });
+  }),
+);
+
+// ---------------------------------------------
 // Create material
+// POST /api/guru/materi
 // ---------------------------------------------
 
 router.post(
@@ -703,6 +866,7 @@ router.post(
 
 // ---------------------------------------------
 // Create assignment
+// POST /api/guru/tugas
 // ---------------------------------------------
 
 router.post(
@@ -744,6 +908,7 @@ router.post(
 
 // ---------------------------------------------
 // Create exam
+// POST /api/guru/ujian
 // ---------------------------------------------
 
 router.post(
@@ -784,6 +949,7 @@ router.post(
             })),
           },
         },
+
         select: {
           id: true,
           judul: true,
@@ -798,7 +964,8 @@ router.post(
 );
 
 // ---------------------------------------------
-// Attendance
+// Read attendance
+// GET /api/guru/absen
 // ---------------------------------------------
 
 router.get(
@@ -823,9 +990,11 @@ router.get(
           role: "MURID",
           kelasId: input.kelasId,
         },
+
         orderBy: {
           name: "asc",
         },
+
         select: {
           id: true,
           name: true,
@@ -839,6 +1008,7 @@ router.get(
           mapelId: input.mapelId,
           tanggal,
         },
+
         select: {
           siswaId: true,
           status: true,
@@ -867,6 +1037,11 @@ router.get(
     });
   }),
 );
+
+// ---------------------------------------------
+// Save attendance
+// POST /api/guru/absen
+// ---------------------------------------------
 
 router.post(
   "/absen",
@@ -902,6 +1077,7 @@ router.post(
           role: "MURID",
           kelasId: input.kelasId,
         },
+
         select: {
           id: true,
         },
@@ -959,6 +1135,7 @@ router.post(
 
 // ---------------------------------------------
 // Assignment submissions
+// GET /api/guru/tugas/:id/submissions
 // ---------------------------------------------
 
 router.get(
@@ -972,6 +1149,7 @@ router.get(
         id,
         createdById: guruId,
       },
+
       select: {
         id: true,
         judul: true,
@@ -979,11 +1157,13 @@ router.get(
         deadline: true,
         kelasId: true,
         mapelId: true,
+
         kelas: {
           select: {
             nama: true,
           },
         },
+
         mapel: {
           select: {
             nama: true,
@@ -1010,9 +1190,11 @@ router.get(
       where: {
         tugasId: id,
       },
+
       orderBy: {
         createdAt: "asc",
       },
+
       select: {
         id: true,
         fileUrl: true,
@@ -1022,6 +1204,7 @@ router.get(
         gradedAt: true,
         createdAt: true,
         updatedAt: true,
+
         siswa: {
           select: {
             id: true,
@@ -1041,6 +1224,7 @@ router.get(
 
 // ---------------------------------------------
 // Grading
+// POST /api/guru/nilai/:submissionId
 // ---------------------------------------------
 
 router.post(
@@ -1058,8 +1242,10 @@ router.post(
         where: {
           id: submissionId,
         },
+
         select: {
           id: true,
+
           tugas: {
             select: {
               createdById: true,
@@ -1092,6 +1278,7 @@ router.post(
           id: submissionId,
           updatedAt: new Date(input.updatedAt),
         },
+
         data: {
           nilai: input.nilai,
           feedback: input.feedback || null,
@@ -1110,6 +1297,7 @@ router.post(
         where: {
           id: submissionId,
         },
+
         select: {
           id: true,
           nilai: true,
