@@ -311,3 +311,26 @@
     flex-wrap: wrap;
   }
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .page { min-width: 0; max-width: 100%; padding: 16px 12px; }
+  .header { min-width: 0; max-width: 100%; flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; padding: 20px 16px; }
+  .header h1 { min-width: 0; max-width: 100%; }
+  .header p { min-width: 0; max-width: 100%; }
+  .registerButton { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .searchButton { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .secondaryButton { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .editButton { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .deleteButton { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .panel { min-width: 0; max-width: 100%; }
+  .toolbar { flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; }
+  .searchControls { flex-wrap: wrap; gap: 10px; }
+  .searchInput { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .tableWrapper { width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-inline: contain; }
+  .rowActions { flex-wrap: wrap; gap: 10px; }
+  .modal { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .modal .modalCard { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .loadActions { flex-wrap: wrap; gap: 10px; }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

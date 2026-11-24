@@ -488,3 +488,21 @@
     transition: none;
   }
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 1024px) {
+  .columns { grid-template-columns: minmax(0, 1fr); }
+  .infoGrid { grid-template-columns: minmax(0, 1fr); }
+}
+@media screen and (max-width: 768px) {
+  .page { min-width: 0; max-width: 100%; }
+  .header { min-width: 0; max-width: 100%; flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; }
+  .actions { flex-wrap: wrap; gap: 10px; }
+  .primary { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .secondary { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .profileHero { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .columns { grid-template-columns: minmax(0, 1fr); }
+  .panel { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .infoGrid { grid-template-columns: minmax(0, 1fr); }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

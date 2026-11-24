@@ -1,0 +1,4 @@
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width:1024px){html,body{min-width:0}:where(main,section,article,form,fieldset){min-width:0}:where(img,video,picture){max-width:100%}:where(pre){max-width:100%;overflow-x:auto}}@media screen and (max-width:768px){:where(button,input,select,textarea){touch-action:manipulation}:where(h1,h2,h3,p,dd,label){overflow-wrap:anywhere}:where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]),select,textarea){min-width:0;max-width:100%;font-size:16px}}
+/* WEBDAHOI MOBILE ALL V1 END */

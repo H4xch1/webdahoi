@@ -108,3 +108,14 @@
 .submitBtn:disabled {
   opacity: 0.6;
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .formSide { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .card { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .form { min-width: 0; max-width: 100%; }
+  .input { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .submitBtn { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+}
+@media screen and (max-width:768px){.loginRoot{min-width:0;min-height:100svh}.visualSide{display:none}.formSide{min-width:0;padding:24px 16px}.card{width:100%;min-width:0;padding:28px 20px}.cardTitle{font-size:1.4rem;letter-spacing:.06em}.input{font-size:16px;min-height:46px;max-width:100%;min-width:0}.submitBtn{min-height:46px}}
+/* WEBDAHOI MOBILE ALL V1 END */

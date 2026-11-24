@@ -1,0 +1,34 @@
+{
+  "files": [
+    {
+      "path": "frontend/src/app/role-cinematic.css",
+      "created": true,
+      "before": null,
+      "after": "bc6e5612de8ef50d6bfbd316de38f7341e53803afbb46160b1644edd5670d192"
+    },
+    {
+      "path": "frontend/src/app/layout.tsx",
+      "created": false,
+      "before": "449d2c4a7bd619fe8ac7534a1a5ec6dfcaafbbfc250049904213c7fd8f964c75",
+      "after": "ef0a2fb617ceca6c1c25f9f5f57a8d5979fe412b4563d6974481c541ecc102ed"
+    },
+    {
+      "path": "frontend/src/app/(dashboard)/admin/page.tsx",
+      "created": false,
+      "before": "8387af043ed819b6f3c93871510960177bb4e03776aece4f6c851678163fd1d1",
+      "after": "e7a2a51eb56d9beaec330a660c62efd45e7987e973cafc79c37603cfc32f3e69"
+    },
+    {
+      "path": "frontend/src/app/(dashboard)/murid/page.tsx",
+      "created": false,
+      "before": "450ba1e46002b11a67e95041fb9255c66ca4fe0de501be1d1766d20e5582234e",
+      "after": "c17229cb24e794e2a8d2be75f66d0835d76ca7c43a577007cd9bee88f27abd57"
+    },
+    {
+      "path": "frontend/src/app/(dashboard)/kurikulum/page.tsx",
+      "created": false,
+      "before": "333cacbcadc84b05eda4ab064612d1e9089591bb7c290c7cdff4b1e6dea3c2a8",
+      "after": "eec95100617670de902339d2df5d1181637ed6dfaa54d602068ca5b36b1632cd"
+    }
+  ]
+}

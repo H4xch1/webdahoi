@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Playfair_Display } from "next/font/google";
 import "./global.css";
 import "./guru-cinematic.css";
+// ROLE DASHBOARD SKIN START
+import "./role-cinematic.css";
+import "./role-polish.css";
+// ROLE DASHBOARD SKIN END
 
 const playfair = Playfair_Display({
   subsets: ["latin"],

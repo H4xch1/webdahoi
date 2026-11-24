@@ -1,44 +1,42 @@
 {
-  "package": "Webdahoi Guru motion add-on",
-  "keepsExistingCinematicTheme": true,
+  "package": "Guru-style role dashboards",
+  "homePagesRedesigned": [
+    "/admin",
+    "/murid",
+    "/kurikulum"
+  ],
+  "themeRoles": [
+    "guru",
+    "admin",
+    "murid",
+    "kurikulum",
+    "kepsek"
+  ],
+  "prerequisite": "Installed local Guru cinematic CSS and referenced public assets",
   "newDependencies": [],
   "databaseChanges": false,
-  "motion": {
-    "native": "document.startViewTransition",
-    "fallback": "Web Animations API entrance",
-    "durationMs": 560,
-    "maxSnapshotWaitMs": 220
-  },
-  "background": {
-    "format": "animated WebP",
-    "frames": 80,
-    "durationMs": 6400,
-    "dimensions": [
-      960,
-      540
-    ],
-    "bytes": 674250,
-    "isLive2D": false
-  },
-  "installerModifiesWithBackups": [
-    "frontend/src/app/(dashboard)/layout.tsx",
-    "frontend/src/components/layout/Sidebar.tsx",
-    "standard default next/link imports in Guru-folder TSX files"
-  ],
-  "newFiles": [
-    "frontend/src/components/guru-motion/config.ts",
-    "frontend/src/components/guru-motion/GuruMotionLink.tsx",
-    "frontend/src/components/guru-motion/GuruMotionBoundary.tsx",
-    "frontend/src/components/guru-motion/guru-motion.css",
-    "tools/install-guru-motion.mjs",
-    "frontend/public/themes/guru-motion/academy-poster.webp",
-    "frontend/public/themes/guru-motion/academy-loop.webp",
-    "preview-guru-motion/index.html",
-    "preview-guru-motion/demo.css",
-    "preview-guru-motion/demo.js",
-    "tools/preview-guru-motion.mjs",
-    "README-GURU-MOTION.md",
-    "MOTION-ASSETS.txt",
+  "extendsGuruMotionRuntime": false,
+  "files": [
+    "frontend/src/components/role-dashboards/DashboardKit.tsx",
+    "frontend/src/components/role-dashboards/AdminDashboard.tsx",
+    "frontend/src/components/role-dashboards/StudentDashboard.tsx",
+    "frontend/src/components/role-dashboards/CurriculumDashboard.tsx",
+    "role-unification/pages/admin.tsx",
+    "role-unification/pages/murid.tsx",
+    "role-unification/pages/kurikulum.tsx",
+    "frontend/src/components/role-dashboards/dashboards.module.css",
+    "frontend/src/app/role-polish.css",
+    "tools/install-role-dashboards.mjs",
+    "tools/restore-role-dashboards.mjs",
+    "README-ROLE-DASHBOARDS.md",
+    "DESIGN-NOTES.md",
     "VERIFICATION.txt"
+  ],
+  "installerWrites": [
+    "frontend/src/app/role-cinematic.css",
+    "frontend/src/app/layout.tsx",
+    "frontend/src/app/(dashboard)/admin/page.tsx",
+    "frontend/src/app/(dashboard)/murid/page.tsx",
+    "frontend/src/app/(dashboard)/kurikulum/page.tsx"
   ]
 }

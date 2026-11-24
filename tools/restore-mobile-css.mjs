@@ -1,0 +1,5 @@
+import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';
+const root=process.cwd(),arg=process.argv[2];if(!arg)throw Error('Pass the printed backup directory path.');
+const dir=path.resolve(root,arg);if(!dir.startsWith(path.join(root,'.mobile-css-backups')+path.sep))throw Error('Backup must be inside this project.');
+const manifest=JSON.parse(fs.readFileSync(path.join(dir,'manifest.json'),'utf8'));const hash=x=>crypto.createHash('sha256').update(x).digest('hex');const plan=[];
+for(const x of manifest.files){const to=path.resolve(root,x.path),from=path.resolve(dir,x.path);if(!to.startsWith(root+path.sep)||!from.startsWith(dir+path.sep)||!x.path.endsWith('.css'))throw Error('Unsafe path');const bytes=fs.readFileSync(from);if(hash(bytes)!==x.before||hash(fs.readFileSync(to))!==x.after)throw Error(`Changed since patch; restore manually: ${x.path}`);plan.push({to,bytes});}for(const x of plan)fs.writeFileSync(x.to,x.bytes);console.log(`Restored ${plan.length} stylesheets.`);

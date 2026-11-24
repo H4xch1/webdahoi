@@ -198,3 +198,10 @@
     gap: 8px;
   }
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .toolbar { flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; }
+  .gradeGrid { grid-template-columns: minmax(0, 1fr); }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

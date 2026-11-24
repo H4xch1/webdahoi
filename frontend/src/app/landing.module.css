@@ -120,3 +120,15 @@
   color: var(--color-rinas-muted);
   z-index: 2;
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .loginBtn { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .hero { min-width: 0; max-width: 100%; flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; padding: 20px 16px; }
+  .ctaBtn { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .infoCard { min-width: 0; max-width: 100%; padding: 20px 16px; width: min(100%, 260px); }
+  .infoCard h3 { min-width: 0; max-width: 100%; }
+  .infoCard p { min-width: 0; max-width: 100%; }
+}
+@media screen and (max-width:768px){.landingRoot{min-height:100svh}.nav{flex-wrap:wrap;gap:12px;padding:16px}.logoText{font-size:1.15rem;letter-spacing:.04em}.loginBtn{display:inline-flex;align-items:center;min-height:44px}.hero{padding:32px 16px}.title{font-size:clamp(2rem,8vw,3rem);overflow-wrap:anywhere}.subtitle{font-size:1rem;line-height:1.7}.infoRow{padding:24px 16px 36px;gap:16px}.infoCard{width:100%;min-width:0;padding:20px}}
+/* WEBDAHOI MOBILE ALL V1 END */

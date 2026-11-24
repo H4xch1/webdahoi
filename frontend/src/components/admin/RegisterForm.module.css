@@ -43,3 +43,11 @@
   color: #dc2626;
   font-size: 13px;
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .form { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .input { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .submit { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

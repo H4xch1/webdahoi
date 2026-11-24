@@ -80,3 +80,40 @@
   .toolbar > button { flex: 1 1 auto; }
   .actions { gap: 8px; }
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 1024px) {
+  .columns { grid-template-columns: minmax(0, 1fr); }
+  .formGrid { grid-template-columns: minmax(0, 1fr); }
+  .assignmentGrid { grid-template-columns: minmax(0, 1fr); }
+}
+@media screen and (max-width: 768px) {
+  .page { min-width: 0; max-width: 100%; }
+  .page h1 { min-width: 0; max-width: 100%; }
+  .page h2 { min-width: 0; max-width: 100%; }
+  .hero { min-width: 0; max-width: 100%; flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; padding: 20px 16px; }
+  .header { min-width: 0; max-width: 100%; flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; }
+  .hero p { min-width: 0; max-width: 100%; }
+  .panel { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .stat { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+  .columns { grid-template-columns: minmax(0, 1fr); }
+  .formGrid { grid-template-columns: minmax(0, 1fr); }
+  .assignmentGrid { grid-template-columns: minmax(0, 1fr); }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .stat p { min-width: 0; max-width: 100%; }
+  .stat strong { min-width: 0; max-width: 100%; }
+  .primary { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .secondary { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .danger { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .actions { flex-wrap: wrap; gap: 10px; }
+  .toolbar { flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; }
+  .field input { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .field select { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .tableWrap { width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-inline: contain; }
+  .form { min-width: 0; max-width: 100%; }
+}
+@media screen and (max-width: 359px) {
+  .stats { grid-template-columns: minmax(0, 1fr); }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

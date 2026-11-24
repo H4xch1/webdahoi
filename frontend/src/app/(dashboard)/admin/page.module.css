@@ -74,3 +74,12 @@
 .loading {
   color: #6b7280;
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .page { min-width: 0; max-width: 100%; padding: 16px 12px; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .card { min-width: 0; max-width: 100%; }
+  .actions { flex-wrap: wrap; gap: 10px; }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

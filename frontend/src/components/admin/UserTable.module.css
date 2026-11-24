@@ -37,3 +37,10 @@
   color: #6b7280;
   font-size: 14px;
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .delete { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+}
+@media screen and (max-width:768px){.table{display:block;width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}.table th,.table td{min-width:140px;padding:12px;overflow-wrap:anywhere}.delete{min-height:44px}}
+/* WEBDAHOI MOBILE ALL V1 END */

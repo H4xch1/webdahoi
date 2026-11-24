@@ -217,3 +217,21 @@
     width: 100%;
   }
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .page { min-width: 0; max-width: 100%; padding: 16px 12px; }
+  .card { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .header { min-width: 0; max-width: 100%; }
+  .header h1 { min-width: 0; max-width: 100%; }
+  .header p { min-width: 0; max-width: 100%; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .field input { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .field select { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .classList { grid-template-columns: minmax(0, 1fr); }
+  .classOption input { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .actions { flex-wrap: wrap; gap: 10px; }
+  .primaryButton { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .secondaryButton { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

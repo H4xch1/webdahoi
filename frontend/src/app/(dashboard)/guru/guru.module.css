@@ -295,3 +295,28 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 1024px) {
+  .columns { grid-template-columns: minmax(0, 1fr); }
+}
+@media screen and (max-width: 768px) {
+  .hero { min-width: 0; max-width: 100%; grid-template-columns: minmax(0, 1fr); padding: 20px 16px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .stat { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .stat p { min-width: 0; max-width: 100%; }
+  .stat strong { min-width: 0; max-width: 100%; }
+  .columns { grid-template-columns: minmax(0, 1fr); }
+  .shortcuts a { grid-template-columns: minmax(0, 1fr); }
+  .tabs { flex-wrap: wrap; gap: 10px; }
+  .tab { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .activeTab { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .contentGrid { grid-template-columns: minmax(0, 1fr); }
+  .contentCard { min-width: 0; max-width: 100%; }
+  .contentCard h3 { min-width: 0; max-width: 100%; }
+  .contentCard > a { min-width: 0; max-width: 100%; }
+}
+@media screen and (max-width: 359px) {
+  .stats { grid-template-columns: minmax(0, 1fr); }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

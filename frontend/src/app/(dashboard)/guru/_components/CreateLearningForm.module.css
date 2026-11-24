@@ -96,3 +96,9 @@
     padding: 18px;
   }
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .form { min-width: 0; max-width: 100%; }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

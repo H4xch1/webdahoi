@@ -321,3 +321,7 @@ body:has(aside nav a[href="/guru"]) main [class*="ornament"] > span {
     box-shadow: none;
   }
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width:768px){body:has(aside nav a[href="/guru"]){background-attachment:scroll}body:has(aside nav a[href="/guru"]) aside:has(nav a[href="/guru"]){background-size:240px auto,auto;border-right:0}body:has(aside nav a[href="/guru"]) main :is(section[class*="hero"],header[class*="header"]){padding:20px 16px;border-image-width:12px}body:has(aside nav a[href="/guru"]) main :is(input,select,textarea){font-size:16px}}@media (hover:none) and (pointer:coarse){body:has(aside nav a[href="/guru"])::after{display:none}}
+/* WEBDAHOI MOBILE ALL V1 END */

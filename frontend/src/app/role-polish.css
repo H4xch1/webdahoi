@@ -1,0 +1,31 @@
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) {
+  --color-rinas-bg:#0b101e; --color-rinas-bg-soft:#101625; --color-rinas-panel:#161d2e;
+  --color-rinas-gold:#d8b77b; --color-rinas-gold-soft:#f6e3b6; --color-rinas-text:#f0e7d5; --color-rinas-muted:#bab3ad;
+}
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main { min-width:0; }
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main :is(h1,h2,h3) { font-family:var(--font-playfair,Georgia),serif; }
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main :is(article,section,div):is([class*="panel"],[class*="Panel"],[class*="card"],[class*="Card"]):not([class*="Grid"]):not([class*="grid"]):not([class*="Row"]):not([class*="row"]):not([class*="Top"]):not([class*="top"]) {
+  color:#f0e7d5; background-color:#111725; border-color:#756043;
+}
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main form[class] { color:#f0e7d5; background-color:#111725; }
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  color:#f0e7d5; background-color:#0b101e; border-color:#756043; max-width:100%;
+}
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main :is(input,select,textarea):focus-visible { outline:2px solid #e6c58e; outline-offset:3px; }
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main table { color:#f0e7d5; background:#111725; }
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main th { color:#e6c58e; background:#1b2233; border-color:#443c32; }
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main td { color:#f0e7d5; background:#111725; border-color:#443c32; }
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main tbody tr:hover td { background:#1b2233; }
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main :is(dialog,[role="dialog"]) { color:#f0e7d5; background:#111725; border-color:#756043; }
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main :is(button,a):is([class*="submit"],[class*="Submit"],[class*="registerButton"],[class*="searchButton"],[class*="editButton"],[class*="export"],[class*="Export"]) {
+  color:#18120a; background:linear-gradient(135deg,#ead3a3,#c79b54); border:1px solid #d6b477; border-radius:10px 15px; min-height:44px;
+}
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main :is([class*="error"],[class*="Error"]) { color:#ffd8d4; }
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main :is([class*="success"],[class*="Success"]) { color:#bbf7d0; }
+@media(max-width:768px) {
+  body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]) { font-size:16px; }
+}
+
+body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"])) main [class*="banner"] { color:#f0e7d5; background:linear-gradient(110deg,#192133,#0e1423); border:1px solid #8b7446; border-radius:14px; }
+html[data-guru-motion-enabled] body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"]))::before,
+html[data-guru-motion-enabled] body:has(aside nav a:is([href="/guru"],[href="/admin"],[href="/murid"],[href="/kurikulum"],[href="/kepsek"]))::after { animation:none; opacity:0; }

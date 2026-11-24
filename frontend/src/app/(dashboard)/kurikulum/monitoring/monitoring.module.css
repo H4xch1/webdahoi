@@ -56,3 +56,38 @@
 .page :is(a, button, select, input):focus-visible { outline: 3px solid var(--m-gold); outline-offset: 4px; }
 @media (max-width: 800px) { .filters { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .page { gap: 18px; } .hero, .panel, .card, .teacher { padding: 20px; } .toolbar > button { flex: 1 1 auto; } }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .page { min-width: 0; max-width: 100%; }
+  .hero { min-width: 0; max-width: 100%; flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; padding: 20px 16px; }
+  .header { min-width: 0; max-width: 100%; flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; }
+  .page h1 { min-width: 0; max-width: 100%; }
+  .page h2 { min-width: 0; max-width: 100%; }
+  .page h3 { min-width: 0; max-width: 100%; }
+  .hero p { min-width: 0; max-width: 100%; }
+  .panel { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .card { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .stat { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .teacher { min-width: 0; max-width: 100%; padding: 20px 16px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .stat p { min-width: 0; max-width: 100%; }
+  .stat strong { min-width: 0; max-width: 100%; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .card h2 { min-width: 0; max-width: 100%; }
+  .card p { min-width: 0; max-width: 100%; }
+  .card > .primary { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .actions { flex-wrap: wrap; gap: 10px; }
+  .filters { grid-template-columns: minmax(0, 1fr); }
+  .toolbar { flex-wrap: wrap; gap: 10px; flex-direction: column; align-items: stretch; }
+  .field input { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .field select { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .primary { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .secondary { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .reload { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .record { min-width: 0; max-width: 100%; }
+}
+@media screen and (max-width: 359px) {
+  .stats { grid-template-columns: minmax(0, 1fr); }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

@@ -101,3 +101,7 @@ html[data-guru-motion-enabled] [class*="shell"] { background: transparent; }
   .gm-living-scene { display: none; }
   .gm-background-toggle { background: Canvas; color: ButtonText; border-color: ButtonText; }
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width:768px){.gm-living-scene>:is(img,video){object-position:64% center}.gm-background-toggle{bottom:calc(8px + env(safe-area-inset-bottom,0px));right:8px;min-height:44px;max-width:calc(100vw - 24px)}}
+/* WEBDAHOI MOBILE ALL V1 END */

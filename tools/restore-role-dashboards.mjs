@@ -1,0 +1,6 @@
+import fs from "node:fs";import path from "node:path";import crypto from "node:crypto";
+const root=process.cwd(),arg=process.argv[2];if(!arg)throw Error("Pass the printed .role-dashboard-backups/<timestamp> directory.");
+const backup=path.resolve(root,arg);if(!backup.startsWith(path.join(root,".role-dashboard-backups")+path.sep))throw Error("Invalid backup directory.");
+const manifest=JSON.parse(fs.readFileSync(path.join(backup,"manifest.json"),"utf8"));const sha=x=>crypto.createHash("sha256").update(x).digest("hex");const plan=[];
+for(const item of manifest.files){const file=path.resolve(root,item.path),old=path.resolve(backup,item.path);if(!file.startsWith(root+path.sep)||!old.startsWith(backup+path.sep))throw Error("Unsafe path");if(sha(fs.readFileSync(file))!==item.after)throw Error(`Later edits detected: ${item.path}. Restore manually after review.`);const before=item.created?null:fs.readFileSync(old);if(before&&sha(before)!==item.before)throw Error("Backup mismatch");plan.push({file,before});}
+for(const x of plan){if(x.before===null)fs.unlinkSync(x.file);else fs.writeFileSync(x.file,x.before);}console.log(`Restored ${plan.length} installed files. Additive components remain inactive.`);

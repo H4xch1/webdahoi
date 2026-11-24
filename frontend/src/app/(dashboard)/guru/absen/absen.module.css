@@ -144,3 +144,11 @@
     border: 0;
   }
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .loadButton { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .loadButton button { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .tableWrap { width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-inline: contain; }
+}
+/* WEBDAHOI MOBILE ALL V1 END */

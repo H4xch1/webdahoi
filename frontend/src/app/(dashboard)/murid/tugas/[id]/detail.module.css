@@ -77,3 +77,11 @@
   color: var(--color-rinas-gold);
   font-weight: 700;
 }
+
+/* WEBDAHOI MOBILE ALL V1 START */
+@media screen and (max-width: 768px) {
+  .page { min-width: 0; max-width: 100%; }
+  .input { min-width: 0; max-width: 100%; font-size: 16px; min-height: 44px; }
+  .submitBtn { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+}
+/* WEBDAHOI MOBILE ALL V1 END */
