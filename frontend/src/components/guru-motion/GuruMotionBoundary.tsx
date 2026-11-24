@@ -139,7 +139,7 @@ function ActiveGuruMotion({ children }: { children: ReactNode }) {
       return;
     }
     const page = getPage();
-    if (!page || isReduced() || typeof page.animate !== "function") return;
+    if (document.documentElement.hasAttribute("data-route-motion-active") || !page || isReduced() || typeof page.animate !== "function") return;
     fallback.current = page.animate([
       { opacity: .2, transform: "translateY(22px) scale(.9)", filter: "blur(5px)", offset: 0 },
       { opacity: 1, transform: "translateY(-1px) scale(1.008)", filter: "blur(0px)", offset: .7 },

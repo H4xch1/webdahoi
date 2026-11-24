@@ -1,0 +1,18 @@
+/* Extra accent for EXISTING Guru snapshot transitions, not a second router. */
+html[data-route-motion-active][data-guru-native-transition]::view-transition-new(guru-page) {
+  animation:rm-native-open 620ms cubic-bezier(.2,.8,.2,1) both;
+  transform-origin:var(--gm-origin,50% 30vh);
+}
+html[data-route-motion-active][data-guru-native-transition]::view-transition-old(guru-page) {
+  animation:rm-native-close 320ms ease-out both;
+}
+@keyframes rm-native-open { from {opacity:0;transform:translateY(18px) scale(.82);filter:blur(5px)} 75% {opacity:1;transform:scale(1.008);filter:blur(0)} to {opacity:1;transform:none;filter:blur(0)} }
+@keyframes rm-native-close { from {opacity:1;transform:scale(1)} to {opacity:0;transform:scale(.965)} }
+@media(max-width:768px) {
+  html[data-route-motion-active][data-guru-native-transition]::view-transition-new(guru-page) { animation-name:rm-native-mobile;animation-duration:420ms; }
+}
+@keyframes rm-native-mobile { from {opacity:.2;transform:translateY(10px) scale(.96)} to {opacity:1;transform:none} }
+@media(prefers-reduced-motion:reduce) {
+  html[data-route-motion-active][data-guru-native-transition]::view-transition-new(guru-page),
+  html[data-route-motion-active][data-guru-native-transition]::view-transition-old(guru-page) { animation:none; }
+}

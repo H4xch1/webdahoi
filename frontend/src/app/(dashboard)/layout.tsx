@@ -1,3 +1,4 @@
+import RouteMotion from "@/components/route-motion/RouteMotion";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
@@ -30,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className={styles.shell}>
       <Sidebar role={role} />
-      <main className={styles.content}>{children}</main>
+      <main className={styles.content}><RouteMotion>{children}</RouteMotion></main>
     </div>
   );
 }
