@@ -1,0 +1,19 @@
+{
+  "project": "Webdahoi",
+  "state": "completed-baseline",
+  "declaredBy": "maintainer",
+  "recordedOn": "2026-11-25",
+  "scope": "Project state as provided by the maintainer in this conversation",
+  "documentationRefresh": {
+    "appSourceChanged": false,
+    "environmentFilesChanged": false,
+    "databaseChanged": false,
+    "remoteRepositoryWritten": false
+  },
+  "notCertifiedByThisPackage": [
+    "production build",
+    "live deployment availability",
+    "security audit",
+    "device/browser testing"
+  ]
+}
